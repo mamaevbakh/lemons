@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { GeistSans } from 'geist/font/sans';
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider"
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
   title: "LemonsLemons",
@@ -15,6 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      
       <body
         className={`${GeistSans.variable} font-sans antialiased`}
       ><ThemeProvider
@@ -24,7 +26,9 @@ export default function RootLayout({
             disableTransitionOnChange
           >
         {children}
+      {/* Place system-level, independent components here */}
       </ThemeProvider>
+      <Analytics />
       </body>
     </html>
   );
