@@ -4,7 +4,6 @@ import {
   SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import Image from "next/image"
 import { NavUser } from "./nav-user"
 
 
