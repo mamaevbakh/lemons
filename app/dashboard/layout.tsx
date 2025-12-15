@@ -1,7 +1,5 @@
 // app/dashboard/layout.tsx
-
 import { SidebarLeft } from "@/components/sidebar-left"
-import { SidebarRight } from "@/components/sidebar-right"
 
 import {
   SidebarInset,
@@ -52,8 +50,8 @@ export default function DashboardLayout({
         </main>
         
       </SidebarInset>
-
-      <SidebarRight />
+      
+      
     </SidebarProvider>
   )
 }

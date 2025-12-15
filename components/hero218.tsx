@@ -59,15 +59,27 @@ const Hero218 = () => {
                 <p className="text-muted-foreground text-center">
                 Digital Solutions, Finally Simple. Everything from freelancers to SaaS — packaged as products you can buy in minutes.
                 </p>
-                <Button
-          asChild
-          variant="secondary"
-          className="text-md group flex w-fit items-center justify-center gap-2 rounded-sm px-4 py-1 tracking-tight"
-        ><Link href={"https://t.me/EmanuelaMilina"} target="_blank" rel="noreferrer">
-          Contact Us now
-          <ArrowRight className="size-4 -rotate-45 transition-all ease-out group-hover:ml-3 group-hover:rotate-0" />
-          </Link>
-        </Button>
+                <div className="flex flex-wrap items-center justify-center gap-4">
+                  <Button
+                    asChild
+                    variant="secondary"
+                    className="text-md group flex w-fit items-center justify-center gap-2 rounded-sm px-4 py-1 tracking-tight"
+                  >
+                    <Link href={"https://t.me/EmanuelaMilina"} target="_blank" rel="noreferrer">
+                      Contact Us now
+                      <ArrowRight className="size-4 -rotate-45 transition-all ease-out group-hover:ml-3 group-hover:rotate-0" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="text-md flex w-fit items-center justify-center gap-2 rounded-sm px-4 py-1 tracking-tight"
+                  >
+                    <Link href="/offers">
+                      Browse Offers
+                    </Link>
+                  </Button>
+                </div>
        
         
         

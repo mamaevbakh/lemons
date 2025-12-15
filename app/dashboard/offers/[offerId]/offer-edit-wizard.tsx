@@ -151,10 +151,10 @@ export function OfferEditWizard({
   }
 
   return (
-    <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] lg:min-h-[calc(100vh-3.5rem)] lg:items-start">
+    <div className="flex w-full gap-2 min-h-full max-h-full">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="space-y-8 flex-col flex-auto"
+        className="space-y-8 flex-auto overflow-y-auto p-6"
       >
       {/* Step indicator + status pill */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -631,7 +631,7 @@ export function OfferEditWizard({
       )}
     </form>
 
-      <div className="hidden lg:block lg:sticky lg:top-0">
+      <div className="hidden lg:block lg:sticky min-w-[480px] w-80 border-l pl-2 pb-2 pr-2">
         <OfferAssistantPanel form={form} />
       </div>
     </div>

@@ -175,6 +175,8 @@ export type Database = {
           full_name: string | null
           headline: string | null
           id: string
+          stripe_account_id: string | null
+          stripe_onboarding_status: string | null
           updated_at: string
           years_of_experience: number | null
         }
@@ -185,6 +187,8 @@ export type Database = {
           full_name?: string | null
           headline?: string | null
           id?: string
+          stripe_account_id?: string | null
+          stripe_onboarding_status?: string | null
           updated_at?: string
           years_of_experience?: number | null
         }
@@ -195,6 +199,8 @@ export type Database = {
           full_name?: string | null
           headline?: string | null
           id?: string
+          stripe_account_id?: string | null
+          stripe_onboarding_status?: string | null
           updated_at?: string
           years_of_experience?: number | null
         }
@@ -205,7 +211,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recompute_offer_aggregates: {
+        Args: { p_offer_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       offer_status: "draft" | "active"

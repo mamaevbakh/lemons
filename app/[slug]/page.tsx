@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/types";
 import { getInitials } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ export default async function OfferPage({
 }) {
   const { slug } = await params;
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createClient();
 
   const { data, error } = await supabase
   .from("offers")

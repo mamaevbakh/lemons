@@ -23,8 +23,6 @@ export async function updateOffer({ offerId, userId, data }: UpdateOfferInput) {
     description,
     categoryId,
     tags,
-    startingPrice,
-    standardDeliveryDays,
     status,
     currencyCode,
   } = parsed.data;
@@ -39,9 +37,6 @@ export async function updateOffer({ offerId, userId, data }: UpdateOfferInput) {
   if (description !== undefined) updatePayload.description = description;
   if (categoryId !== undefined) updatePayload.category_id = categoryId;
   if (tags !== undefined) updatePayload.tags = tags;
-  if (startingPrice !== undefined) updatePayload.starting_price_cents = startingPrice;
-  if (standardDeliveryDays !== undefined)
-    updatePayload.standard_delivery_days = standardDeliveryDays;
   if (status !== undefined) updatePayload.offer_status = status;
   if (currencyCode !== undefined) updatePayload.currency_code = currencyCode;
 

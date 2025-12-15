@@ -24,6 +24,7 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
+import { DraftChangeCard } from "@/components/ai-elements/draft-change-card";
 import {
   OfferWithPackagesDraftSchema,
   type OfferWithPackagesValues,
@@ -171,13 +172,17 @@ export function OfferAssistantPanel({ form }: OfferAssistantPanelProps) {
 
     messages.forEach((m) => {
       m.parts.forEach((part: any) => {
-        // Both tool-result and tool-* parts can carry output depending on provider
-        const isToolResult =
-          (part.type === "tool-result" || String(part.type || "").startsWith("tool-")) &&
-          part.output;
+        // In AI SDK 6 beta, tool parts are typed as tool-{toolName}
+        const isToolPart =
+          part.type === "tool-update_draft_offer" ||
+          part.type === "tool-update_draft_package";
+        
+        // Only process when output is available
+        if (!isToolPart || part.state !== "output-available") return;
+        
         const toolCallId = part.toolCallId;
-        if (!isToolResult || !toolCallId) return;
-        if (nextApplied.has(toolCallId)) return;
+        if (!toolCallId || nextApplied.has(toolCallId)) return;
+        
         // eslint-disable-next-line no-console
         console.debug("assistant tool-output", part.output);
         const parsed = DraftPatchSchema.safeParse(part.output);
@@ -212,15 +217,19 @@ export function OfferAssistantPanel({ form }: OfferAssistantPanelProps) {
                           {part.text}
                         </MessageResponse>
                       );
-                    case "tool-result": {
-                      const parsed = DraftPatchSchema.safeParse(
-                        (part as any).output,
-                      );
+                    case "tool-update_draft_offer":
+                    case "tool-update_draft_package": {
+                      // Only show when output is available
+                      if (part.state !== "output-available") {
+                        return null;
+                      }
+                      const parsed = DraftPatchSchema.safeParse(part.output);
                       if (parsed.success) {
                         return (
-                          <MessageResponse key={`${m.id}-${idx}`}>
-                            Applied draft changes.
-                          </MessageResponse>
+                          <DraftChangeCard
+                            key={`${m.id}-${idx}`}
+                            patch={parsed.data}
+                          />
                         );
                       }
                       return null;
