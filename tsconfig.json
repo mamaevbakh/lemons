@@ -29,6 +29,8 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts",
-    "app/api/assistant/offer"  ],
+    "app/api/assistant/offer",
+    "components/stripe-country-picker.tsx"
+  ],
   "exclude": ["node_modules"]
 }

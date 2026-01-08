@@ -10,6 +10,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 type ProfileWithStripe = {
+  country?: string | null;
   stripe_account_id?: string | null;
   stripe_onboarding_status?: string | null;
 };
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     const user = auth.user;
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("stripe_account_id, stripe_onboarding_status")
+      .select("country, stripe_account_id, stripe_onboarding_status")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -39,12 +40,37 @@ export async function POST(req: NextRequest) {
     }
 
     const profile = profileData as ProfileWithStripe | null;
+    const sellerCountry = (profile?.country ?? null)?.toUpperCase() ?? null;
+
+    if (!sellerCountry) {
+      return NextResponse.json(
+        { error: "Please select your country before connecting Stripe." },
+        { status: 400 },
+      );
+    }
     let accountId = profile?.stripe_account_id ?? null;
+
+    if (accountId) {
+      // Stripe account country is immutable. If the seller changed their country selection,
+      // do NOT silently create a new account. Require explicit reset.
+      const existing = await stripe.accounts.retrieve(accountId);
+      const existingCountry = (existing.country ?? "").toUpperCase();
+      if (existingCountry && existingCountry !== sellerCountry) {
+        return NextResponse.json(
+          {
+            error:
+              "Country is locked after onboarding starts. To change it, click 'Start new onboarding' first.",
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     if (!accountId) {
       // Create a new connected account using controller properties (recommended approach)
       // See: https://docs.stripe.com/connect/design-an-integration
       const account = await stripe.accounts.create({
+        country: sellerCountry,
         // Using controller properties instead of deprecated 'type' parameter
         controller: {
           fees: { payer: "application" },

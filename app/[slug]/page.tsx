@@ -12,7 +12,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
+import { PurchaseButton } from "@/components/purchase/purchase-button";
 
 type Offer = Tables<"offers">;
 type Package = Tables<"packages">;
@@ -33,6 +33,7 @@ export default async function OfferPage({
   const { slug } = await params;
 
   const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
 
   const { data, error } = await supabase
   .from("offers")
@@ -153,9 +154,12 @@ export default async function OfferPage({
   </div>
 
   <div className="mt-4">
-    <Button className="w-full" variant="default">
-      Choose {pkg.name}
-    </Button>
+    <PurchaseButton
+      offerSlug={offer.slug}
+      packageId={pkg.id}
+      packageName={pkg.name}
+      isAuthenticated={Boolean(auth?.user)}
+    />
   </div>
 </CardContent>
                 

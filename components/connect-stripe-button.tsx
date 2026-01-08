@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/button";
 
 type ConnectStripeButtonProps = {
   hasAccountId: boolean;
+  disabled?: boolean;
 };
 
-export function ConnectStripeButton({ hasAccountId }: ConnectStripeButtonProps) {
+export function ConnectStripeButton({
+  hasAccountId,
+  disabled,
+}: ConnectStripeButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,8 +36,8 @@ export function ConnectStripeButton({ hasAccountId }: ConnectStripeButtonProps) 
       }
 
       window.location.href = url;
-    } catch (err: any) {
-      setError(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setIsLoading(false);
     }
@@ -41,7 +45,7 @@ export function ConnectStripeButton({ hasAccountId }: ConnectStripeButtonProps) 
 
   return (
     <div className="space-y-2">
-      <Button onClick={handleClick} disabled={isLoading}>
+      <Button onClick={handleClick} disabled={Boolean(disabled) || isLoading}>
         {isLoading
           ? "Redirecting..."
           : hasAccountId

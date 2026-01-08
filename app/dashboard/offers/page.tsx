@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import type { Tables } from "@/lib/supabase/types";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-type Offer = Tables<"offers">;
+import { createOfferAction } from "./create-actions";
 
 export default async function OffersPage() {
   const supabase = await createClient();
@@ -30,9 +28,9 @@ export default async function OffersPage() {
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Your offers</h1>
-          <Button asChild>
-            <Link href="/dashboard/offers/new">Create offer</Link>
-          </Button>
+          <form action={createOfferAction}>
+            <Button type="submit">Create offer</Button>
+          </form>
         </div>
         <p className="text-sm text-muted-foreground">
           You don&apos;t have any offers yet. Create your first one to get started.
@@ -45,9 +43,9 @@ export default async function OffersPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Your offers</h1>
-        <Button asChild>
-          <Link href="/dashboard/offers/new">Create offer</Link>
-        </Button>
+        <form action={createOfferAction}>
+          <Button type="submit">Create offer</Button>
+        </form>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

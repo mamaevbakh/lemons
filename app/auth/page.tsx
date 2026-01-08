@@ -1,90 +1,111 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
-type Mode = "signin" | "signup";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function AuthPage() {
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const nextParam = searchParams.get("next");
+  const safeNext =
+    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
+      ? nextParam
+      : null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function check() {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (cancelled) return;
+
+        if (data.user) {
+          router.replace(safeNext ?? "/dashboard");
+          return;
+        }
+      } finally {
+        if (!cancelled) setIsCheckingSession(false);
+      }
+    }
+
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, safeNext, supabase]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setMagicLinkSent(false);
 
     try {
-      if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+        safeNext ?? "/dashboard",
+      )}`;
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectTo,
+        },
+      });
 
-        if (error) throw error;
-      }
-
-      // On success, go to dashboard
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err: any) {
-      setError(err?.message ?? "Something went wrong");
+      if (error) throw error;
+      setMagicLinkSent(true);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : "Something went wrong";
+      setError(message);
     } finally {
       setIsLoading(false);
     }
   }
 
-  const title = mode === "signin" ? "Sign in" : "Create your account";
-  const buttonLabel =
-    mode === "signin" ? "Sign in to LemonsLemons" : "Sign up";
+  const title = "Sign in";
+  const buttonLabel = "Send magic link";
+
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="flex flex-col items-center text-center gap-3">
+          <Spinner className="size-6" />
+          <p className="text-sm text-muted-foreground">Redirecting…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-6">
-        {/* Toggle */}
-        <div className="flex gap-2 rounded-full bg-muted p-1">
-          <Button
-            type="button"
-            variant={mode === "signin" ? "default" : "ghost"}
-            size="sm"
-            className="flex-1"
-            onClick={() => setMode("signin")}
-          >
-            Sign in
-          </Button>
-          <Button
-            type="button"
-            variant={mode === "signup" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setMode("signup")}
-          >
-            Sign up
-          </Button>
-        </div>
-
         {/* Heading */}
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="text-sm text-muted-foreground">
-            Use your email and password to access your LemonsLemons dashboard.
+            We’ll email you a link to sign in.
           </p>
         </div>
 
@@ -105,22 +126,11 @@ export default function AuthPage() {
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="password">
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete={
-                mode === "signin" ? "current-password" : "new-password"
-              }
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+          {magicLinkSent ? (
+            <p className="text-sm text-muted-foreground">
+              Check your email for the magic link.
+            </p>
+          ) : null}
 
           {error && (
             <p className="text-sm text-red-500" role="alert">
@@ -136,32 +146,6 @@ export default function AuthPage() {
             {isLoading ? "Please wait..." : buttonLabel}
           </Button>
         </form>
-
-        {mode === "signin" && (
-          <p className="text-xs text-center text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <button
-              type="button"
-              className="underline underline-offset-4"
-              onClick={() => setMode("signup")}
-            >
-              Sign up
-            </button>
-          </p>
-        )}
-
-        {mode === "signup" && (
-          <p className="text-xs text-center text-muted-foreground">
-            Already have an account?{" "}
-            <button
-              type="button"
-              className="underline underline-offset-4"
-              onClick={() => setMode("signin")}
-            >
-              Sign in
-            </button>
-          </p>
-        )}
       </div>
     </div>
   );

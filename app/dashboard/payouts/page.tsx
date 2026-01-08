@@ -11,9 +11,16 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { StripeStatusRefresh } from "@/components/stripe-status-refresh";
+import { StripeStatusAutosync } from "@/components/stripe-status-autosync";
 import { createClient } from "@/lib/supabase/server";
+import { StripeCountryPicker } from "../../../components/stripe-country-picker";
 
-export default async function PayoutsPage() {
+type PayoutsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function PayoutsPage({ searchParams }: PayoutsPageProps) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
 
@@ -21,16 +28,29 @@ export default async function PayoutsPage() {
     redirect("/auth");
   }
 
+  const params = (await searchParams?.catch(() => ({}))) ?? {};
+  const getParam = (key: string) => {
+    const value = (params as Record<string, string | string[] | undefined>)[key];
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) return value[0];
+    return undefined;
+  };
+  const returnedFromStripe = getParam("return") === "1";
+  const refreshedFromStripe = getParam("refresh") === "1";
+
   const { data: profile } = await supabase
     .from("profiles")
-    .select("stripe_account_id, stripe_onboarding_status")
+    .select("country, stripe_account_id, stripe_onboarding_status")
     .eq("id", auth.user.id)
     .single();
+
+  // We handle auto-sync after redirect via a small client component.
 
   const status = profile?.stripe_onboarding_status;
   const isComplete = status === "complete";
   const isPending = status === "pending" || status === "pending_verification";
   const hasStripeAccount = Boolean(profile?.stripe_account_id);
+  const hasCountry = Boolean(profile?.country);
 
   const statusBadge = () => {
     if (isComplete) return { label: "Active", variant: "default" as const };
@@ -41,6 +61,8 @@ export default async function PayoutsPage() {
   };
 
   const badge = statusBadge();
+
+  const shouldAutosync = (returnedFromStripe || refreshedFromStripe) && hasStripeAccount;
 
   return (
     <div className="space-y-6 p-6">
@@ -79,7 +101,20 @@ export default async function PayoutsPage() {
           {isComplete ? (
             <OpenDashboardButton />
           ) : (
-            <ConnectStripeButton hasAccountId={hasStripeAccount} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <StripeStatusAutosync enabled={shouldAutosync} />
+              <StripeCountryPicker
+                initialCountry={profile?.country ?? null}
+                locked={hasStripeAccount}
+              />
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <ConnectStripeButton
+                  hasAccountId={hasStripeAccount}
+                  disabled={!hasCountry}
+                />
+                {hasStripeAccount ? <StripeStatusRefresh /> : null}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -123,6 +123,81 @@ export type Database = {
           },
         ]
       }
+      orders: {
+        Row: {
+          amount_total: number | null
+          buyer_email: string | null
+          buyer_id: string | null
+          created_at: string
+          currency: string | null
+          delivered_at: string | null
+          delivery_manifest: Json | null
+          delivery_message: string | null
+          fulfillment_status: string | null
+          id: string
+          offer_id: string
+          package_id: string
+          platform_fee_amount: number | null
+          seller_id: string
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+        }
+        Insert: {
+          amount_total?: number | null
+          buyer_email?: string | null
+          buyer_id?: string | null
+          created_at?: string
+          currency?: string | null
+          delivered_at?: string | null
+          delivery_manifest?: Json | null
+          delivery_message?: string | null
+          fulfillment_status?: string | null
+          id?: string
+          offer_id: string
+          package_id: string
+          platform_fee_amount?: number | null
+          seller_id: string
+          status: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Update: {
+          amount_total?: number | null
+          buyer_email?: string | null
+          buyer_id?: string | null
+          created_at?: string
+          currency?: string | null
+          delivered_at?: string | null
+          delivery_manifest?: Json | null
+          delivery_message?: string | null
+          fulfillment_status?: string | null
+          id?: string
+          offer_id?: string
+          package_id?: string
+          platform_fee_amount?: number | null
+          seller_id?: string
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       packages: {
         Row: {
           created_at: string
@@ -171,6 +246,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
+          country: string | null
           created_at: string
           full_name: string | null
           headline: string | null
@@ -183,6 +259,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          country?: string | null
           created_at?: string
           full_name?: string | null
           headline?: string | null
@@ -195,6 +272,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          country?: string | null
           created_at?: string
           full_name?: string | null
           headline?: string | null
