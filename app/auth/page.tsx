@@ -28,6 +28,23 @@ export default function AuthPage() {
       ? nextParam
       : null;
 
+  function getSiteOrigin(): string {
+    const configured = process.env.NEXT_PUBLIC_SITE_URL;
+    if (configured && configured.trim().length > 0) {
+      let value = configured.trim();
+      if (!/^https?:\/\//i.test(value)) {
+        value = `https://${value}`;
+      }
+      try {
+        return new URL(value).origin;
+      } catch {
+        // Fall through to runtime origin.
+      }
+    }
+
+    return window.location.origin;
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -58,7 +75,7 @@ export default function AuthPage() {
     setMagicLinkSent(false);
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+      const redirectTo = `${getSiteOrigin()}/auth/callback?next=${encodeURIComponent(
         safeNext ?? "/dashboard",
       )}`;
 
