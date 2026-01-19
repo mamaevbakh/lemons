@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/types";
 import { getInitials } from "@/lib/utils";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -18,11 +18,14 @@ type Offer = Tables<"offers">;
 type Package = Tables<"packages">;
 type Profile = Tables<"profiles">;
 type Category = Tables<"categories">;
+type OfferMedia = Tables<"offer_media">;
+type MediaObject = Tables<"media_objects">;
 
 type OfferWithRelations = Offer & {
   packages?: Package[];
   profiles?: Profile | null;
   categories?: Category | null;
+  offer_media?: (OfferMedia & { media_objects?: MediaObject | null })[];
 };
 
 export default async function OfferPage({
@@ -41,7 +44,18 @@ export default async function OfferPage({
     *,
     packages(*),
     profiles:creator_id(*),
-    categories:category_id(*)
+    categories:category_id(*),
+    offer_media(
+      id,
+      role,
+      position,
+      media_objects:media_id(
+        id,
+        bucket,
+        path,
+        mime_type
+      )
+    )
   `)
   .eq("slug", slug)
   .maybeSingle<OfferWithRelations>();
@@ -61,6 +75,11 @@ export default async function OfferPage({
 
   const offer = data;
 
+  const hasReel =
+    (offer.offer_media ?? []).some(
+      (m) => m.role === "reel" && m.media_objects && m.media_objects.path,
+    ) || false;
+
   const startingPrice =
     offer.starting_price_cents != null
       ? `${offer.starting_price_cents / 100} ${offer.currency_code}`
@@ -70,23 +89,41 @@ export default async function OfferPage({
     <div className="mx-auto flex max-w-4xl flex-col gap-8 p-6">
       {/* Header */}
       <section className="space-y-4">
-        <div className="space-y-2">
-          {offer.categories?.name ? (
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {offer.categories.name}
+        <div className="flex flex-col gap-6 md:flex-row md:items-start">
+          {hasReel && (
+            <div className="w-full md:w-[280px]">
+              <div className="aspect-9/16 w-full overflow-hidden rounded-xl border bg-black">
+                <video
+                  src={`/api/offers/${offer.id}/reel?redirect=1`}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-cover"
+                />
+              </div>
             </div>
-          ) : null}
+          )}
 
-          <h1 className="text-3xl font-bold tracking-tight">
-            {offer.title}
-          </h1>
+          <div className="min-w-0 flex-1 space-y-4">
+            <div className="space-y-2">
+              {offer.categories?.name ? (
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {offer.categories.name}
+                </div>
+              ) : null}
+
+              <h1 className="text-3xl font-bold tracking-tight">
+                {offer.title}
+              </h1>
+            </div>
+
+            {offer.description && (
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                {offer.description}
+              </p>
+            )}
+          </div>
         </div>
-
-        {offer.description && (
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            {offer.description}
-          </p>
-        )}
 
         <div className="flex flex-wrap items-center gap-4 text-sm">
           {startingPrice && (
@@ -181,7 +218,6 @@ export default async function OfferPage({
 
         <div className="flex items-start gap-4">
           <Avatar className="h-12 w-12">
-            <AvatarImage src={offer.profiles?.avatar_url ?? ""} />
             <AvatarFallback>
               {getInitials(offer.profiles?.full_name)}
             </AvatarFallback>

@@ -22,6 +22,20 @@ const OfferDraftSchema = z.object({
   currencyCode: z.string().optional(),
 });
 
+const CaseLinkSchema = z.object({
+  id: z.string().uuid(),
+  caseId: z.string().uuid(),
+  position: z.number().int().nonnegative(),
+  _deleted: z.boolean().optional(),
+});
+
+const CaseLinkDraftSchema = z.object({
+  id: z.string().uuid().optional(),
+  caseId: z.string().uuid().optional(),
+  position: z.number().int().nonnegative().optional(),
+  _deleted: z.boolean().optional(),
+});
+
 export const OfferWithPackagesSchema = z.object({
   offerId: z.uuid(),
 
@@ -34,6 +48,8 @@ export const OfferWithPackagesSchema = z.object({
       _deleted: z.boolean().optional(),
     }),
   ),
+
+  caseLinks: z.array(CaseLinkSchema),
 });
 
 export type OfferWithPackagesValues = z.infer<typeof OfferWithPackagesSchema>;
@@ -42,6 +58,7 @@ export const OfferWithPackagesDraftSchema = z.object({
   offerId: z.string().uuid(),
   offer: OfferDraftSchema,
   packages: z.array(PackageDraftSchema),
+  caseLinks: z.array(CaseLinkDraftSchema),
 });
 
 export type OfferWithPackagesDraftValues = z.infer<

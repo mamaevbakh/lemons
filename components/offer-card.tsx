@@ -7,14 +7,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import type { Tables } from "@/lib/supabase/types";
 
 export type OfferWithRelations = Tables<"offers"> & {
   categories: { name: string } | null;
-  profiles: { full_name: string | null; avatar_url: string | null } | null;
+  profiles: { full_name: string | null } | null;
 };
 
 interface OfferCardProps {
@@ -106,7 +106,6 @@ export function OfferCard({ offer, hrefOverride }: OfferCardProps) {
         <CardFooter className="p-4 pt-0 mt-auto border-t bg-muted/20 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Avatar className="h-6 w-6">
-              <AvatarImage src={offer.profiles?.avatar_url || ""} />
               <AvatarFallback>{avatarFallback}</AvatarFallback>
             </Avatar>
             <span className="text-xs text-muted-foreground truncate max-w-[140px]">

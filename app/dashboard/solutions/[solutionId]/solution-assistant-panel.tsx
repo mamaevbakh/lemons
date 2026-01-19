@@ -24,66 +24,29 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
-import { DraftChangeCard } from "@/components/ai-elements/draft-change-card";
+import { SolutionDraftChangeCard } from "@/components/ai-elements/solution-draft-change-card";
+
 import {
-  OfferWithPackagesDraftSchema,
-  type OfferWithPackagesValues,
-} from "@/lib/validation/offer-with-packages";
-import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
+  SolutionEditorDraftSchema,
+  type SolutionEditorValues,
+} from "@/lib/validation/solution-editor";
 
 const DraftPatchSchema = z.object({
   type: z.literal("draftPatch"),
-  offerPatch: z
+  solutionPatch: z
     .object({
       title: z.string().optional(),
+      headline: z.string().optional(),
       description: z.string().optional(),
-      categoryId: z.string().optional(),
-      tags: z.array(z.string()).optional(),
-      status: z.enum(["draft", "active"]).optional(),
-      currencyCode: z.string().optional(),
+      websiteUrl: z.string().optional(),
+      slug: z.string().optional(),
+      status: z.enum(["draft", "published", "archived"]).optional(),
     })
-    .optional(),
-  packagesPatch: z
-    .array(
-      z.object({
-        index: z.number().int().nonnegative(),
-        id: z.string().optional(),
-        name: z.string().optional(),
-        description: z.string().optional(),
-        priceCents: z.number().int().optional(),
-        deliveryDays: z.number().int().optional(),
-        revisions: z.number().int().optional(),
-        _deleted: z.boolean().optional(),
-      }),
-    )
     .optional(),
   portfolioCaseIds: z.array(z.string().uuid()).optional(),
 });
 
 type DraftPatch = z.infer<typeof DraftPatchSchema>;
-
-type OfferAssistantPanelProps = {
-  form: UseFormReturn<OfferWithPackagesValues>;
-  availableCases: Array<{ id: string; title: string }>;
-  onCaseCreated?: (created: {
-    id: string;
-    title: string;
-    summary: string | null;
-    problem: string | null;
-    solution: string | null;
-    result: string | null;
-    created_at: string;
-  }) => void;
-  onCaseUpdated?: (updated: {
-    id: string;
-    title: string;
-    summary: string | null;
-    problem: string | null;
-    solution: string | null;
-    result: string | null;
-    created_at: string;
-  }) => void;
-};
 
 const CaseCreateRequestSchema = z.object({
   type: z.literal("caseCreateRequest"),
@@ -120,78 +83,68 @@ const CaseUpdateRequestSchema = z.object({
 type CaseCreateRequest = z.infer<typeof CaseCreateRequestSchema>;
 type CaseUpdateRequest = z.infer<typeof CaseUpdateRequestSchema>;
 
-export function OfferAssistantPanel({
+type Props = {
+  form: UseFormReturn<SolutionEditorValues>;
+  availableCases: Array<{ id: string; title: string }>;
+  onCaseCreated?: (created: {
+    id: string;
+    title: string;
+    summary: string | null;
+    problem: string | null;
+    solution: string | null;
+    result: string | null;
+    created_at: string;
+  }) => void;
+  onCaseUpdated?: (updated: {
+    id: string;
+    title: string;
+    summary: string | null;
+    problem: string | null;
+    solution: string | null;
+    result: string | null;
+    created_at: string;
+  }) => void;
+};
+
+export function SolutionAssistantPanel({
   form,
   availableCases,
   onCaseCreated,
   onCaseUpdated,
-}: OfferAssistantPanelProps) {
+}: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
   const [appliedToolIds, setAppliedToolIds] = useState<Set<string>>(new Set());
 
-  const offerId = form.getValues().offerId;
+  const solutionId = form.getValues().solutionId;
 
   const applyDraftPatch = (patch: DraftPatch) => {
-    if (patch.offerPatch) {
-      const { title, description, categoryId, tags, status, currencyCode } =
-        patch.offerPatch;
+    if (patch.solutionPatch) {
+      const { title, headline, description, websiteUrl, slug, status } =
+        patch.solutionPatch;
+
       if (title !== undefined) {
-        form.setValue("offer.title", title, { shouldDirty: true });
+        form.setValue("solution.title", title, { shouldDirty: true });
+      }
+      if (headline !== undefined) {
+        form.setValue("solution.headline", headline, { shouldDirty: true });
       }
       if (description !== undefined) {
-        form.setValue("offer.description", description, { shouldDirty: true });
+        form.setValue("solution.description", description, { shouldDirty: true });
       }
-      if (categoryId !== undefined) {
-        form.setValue("offer.categoryId", categoryId, { shouldDirty: true });
+      if (websiteUrl !== undefined) {
+        form.setValue("solution.websiteUrl", websiteUrl, { shouldDirty: true });
       }
-      if (tags !== undefined) {
-        form.setValue("offer.tags", tags, { shouldDirty: true });
+      if (slug !== undefined) {
+        form.setValue("solution.slug", slug, { shouldDirty: true });
       }
       if (status !== undefined) {
-        form.setValue("offer.status", status, { shouldDirty: true });
+        form.setValue("solution.status", status, { shouldDirty: true });
       }
-      if (currencyCode !== undefined) {
-        form.setValue("offer.currencyCode", currencyCode, { shouldDirty: true });
-      }
-    }
-
-    if (patch.packagesPatch) {
-      patch.packagesPatch.forEach((pkg) => {
-        const idx = pkg.index;
-        if (pkg.name !== undefined) {
-          form.setValue(`packages.${idx}.name`, pkg.name, { shouldDirty: true });
-        }
-        if (pkg.description !== undefined) {
-          form.setValue(`packages.${idx}.description`, pkg.description, {
-            shouldDirty: true,
-          });
-        }
-        if (pkg.priceCents !== undefined) {
-          form.setValue(`packages.${idx}.priceCents`, pkg.priceCents, {
-            shouldDirty: true,
-          });
-        }
-        if (pkg.deliveryDays !== undefined) {
-          form.setValue(`packages.${idx}.deliveryDays`, pkg.deliveryDays, {
-            shouldDirty: true,
-          });
-        }
-        if (pkg.revisions !== undefined) {
-          form.setValue(`packages.${idx}.revisions`, pkg.revisions, {
-            shouldDirty: true,
-          });
-        }
-        if (pkg._deleted !== undefined) {
-          form.setValue(`packages.${idx}._deleted`, pkg._deleted, {
-            shouldDirty: true,
-          });
-        }
-      });
     }
 
     if (patch.portfolioCaseIds) {
-      const current = (form.getValues().caseLinks ?? []) as OfferWithPackagesValues["caseLinks"];
+      const current = (form.getValues().caseLinks ?? []) as SolutionEditorValues["caseLinks"];
 
       const currentByCaseId = new Map(
         current
@@ -199,7 +152,7 @@ export function OfferAssistantPanel({
           .map((c) => [c.caseId as string, c]),
       );
 
-      const next: OfferWithPackagesValues["caseLinks"] = [];
+      const next: SolutionEditorValues["caseLinks"] = [];
 
       patch.portfolioCaseIds.forEach((caseId, position) => {
         const existing = currentByCaseId.get(caseId);
@@ -211,7 +164,6 @@ export function OfferAssistantPanel({
         });
       });
 
-      // Keep any removed links around (soft-delete) so save-actions can delete them.
       current.forEach((c) => {
         if (!c.caseId) return;
         if (patch.portfolioCaseIds?.includes(c.caseId)) return;
@@ -228,9 +180,9 @@ export function OfferAssistantPanel({
   };
 
   const { messages, status, sendMessage } = useChat<UIMessage>({
-    id: `offer-assistant-${offerId}`,
+    id: `solution-assistant-${solutionId}`,
     transport: new DefaultChatTransport({
-      api: "/api/assistant/offer",
+      api: "/api/assistant/solution",
     }),
   });
 
@@ -240,11 +192,10 @@ export function OfferAssistantPanel({
 
     if (!hasText && !hasAttachments) return;
 
-    const draftState =
-      OfferWithPackagesDraftSchema.safeParse(form.getValues());
+    const draftState = SolutionEditorDraftSchema.safeParse(form.getValues());
     const safeEditorState = draftState.success
       ? draftState.data
-      : { offerId, offer: {}, packages: [], caseLinks: [] };
+      : { solutionId, solution: {}, links: [], pricingItems: [], caseLinks: [] };
 
     sendMessage(
       {
@@ -253,7 +204,7 @@ export function OfferAssistantPanel({
       },
       {
         body: {
-          offerId,
+          solutionId,
           editorState: safeEditorState,
           availableCases,
         },
@@ -263,7 +214,6 @@ export function OfferAssistantPanel({
     setText("");
   };
 
-  // Apply tool results that contain draftPatch output
   useEffect(() => {
     const nextApplied = new Set(appliedToolIds);
 
@@ -302,13 +252,15 @@ export function OfferAssistantPanel({
       onCaseCreated?.(body.case);
 
       if (req.attach !== false) {
-        // Attach by setting portfolioCaseIds including the new one.
         const currentIds = (form.getValues().caseLinks ?? [])
           .filter((c) => !c?._deleted)
           .map((c) => c.caseId)
           .filter(Boolean) as string[];
 
-        applyDraftPatch({ type: "draftPatch", portfolioCaseIds: [body.case.id, ...currentIds] });
+        applyDraftPatch({
+          type: "draftPatch",
+          portfolioCaseIds: [body.case.id, ...currentIds],
+        });
       }
     };
 
@@ -343,20 +295,16 @@ export function OfferAssistantPanel({
 
     messages.forEach((m) => {
       m.parts.forEach((part: any) => {
-        // In AI SDK 6 beta, tool parts are typed as tool-{toolName}
         const isToolPart =
-          part.type === "tool-update_draft_offer" ||
-          part.type === "tool-update_draft_package" ||
+          part.type === "tool-update_draft_solution" ||
           part.type === "tool-set_portfolio_cases" ||
           part.type === "tool-request_create_case" ||
           part.type === "tool-request_update_case";
-        
-        // Only process when output is available
         if (!isToolPart || part.state !== "output-available") return;
-        
+
         const toolCallId = part.toolCallId;
         if (!toolCallId || nextApplied.has(toolCallId)) return;
-        
+
         if (part.type === "tool-request_create_case") {
           const parsed = CaseCreateRequestSchema.safeParse(part.output);
           if (parsed.success) {
@@ -381,8 +329,6 @@ export function OfferAssistantPanel({
           return;
         }
 
-        // eslint-disable-next-line no-console
-        console.debug("assistant tool-output", part.output);
         const parsed = DraftPatchSchema.safeParse(part.output);
         if (parsed.success) {
           applyDraftPatch(parsed.data);
@@ -401,7 +347,6 @@ export function OfferAssistantPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Messages */}
       <Conversation>
         <ConversationContent>
           {messages.map((m) => (
@@ -415,16 +360,12 @@ export function OfferAssistantPanel({
                           {part.text}
                         </MessageResponse>
                       );
-                    case "tool-update_draft_offer":
-                    case "tool-update_draft_package": {
-                      // Only show when output is available
-                      if (part.state !== "output-available") {
-                        return null;
-                      }
+                    case "tool-update_draft_solution": {
+                      if (part.state !== "output-available") return null;
                       const parsed = DraftPatchSchema.safeParse(part.output);
                       if (parsed.success) {
                         return (
-                          <DraftChangeCard
+                          <SolutionDraftChangeCard
                             key={`${m.id}-${idx}`}
                             patch={parsed.data}
                           />
@@ -432,25 +373,6 @@ export function OfferAssistantPanel({
                       }
                       return null;
                     }
-                    case "tool-set_portfolio_cases": {
-                      if (part.state !== "output-available") return null;
-                      return null;
-                    }
-                    case "reasoning":
-                      return (
-                        <Reasoning
-                          key={`${m.id}-${idx}`}
-                          className="w-full"
-                          isStreaming={
-                            status === "streaming" &&
-                            idx === m.parts.length - 1 &&
-                            m.id === messages.at(-1)?.id
-                          }
-                        >
-                          <ReasoningTrigger />
-                          <ReasoningContent>{part.text}</ReasoningContent>
-                        </Reasoning>
-                      );
                     default:
                       return null;
                   }
@@ -462,14 +384,13 @@ export function OfferAssistantPanel({
         <ConversationScrollButton />
       </Conversation>
 
-      {/* Input */}
       <PromptInput onSubmit={handleSubmit} className="mt-4">
         <PromptInputBody>
           <PromptInputTextarea
             ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Ask the assistant to improve your offer or edit your packages..."
+            placeholder="Ask the assistant to improve your solution page..."
             className="pr-12"
           />
         </PromptInputBody>

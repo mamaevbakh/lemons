@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -43,29 +43,52 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 
-import { ChevronsUpDown, Check, Trash2, Plus } from "lucide-react";
+import { ChevronsUpDown, Check, Trash2, Plus, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Empty, EmptyContent, EmptyDescription } from "@/components/ui/empty";
 import { OfferAssistantPanel } from "./offer-assistant-panel";
+import { Dropzone, DropzoneContent, DropzoneEmptyState } from "@/components/dropzone";
+import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
+import {
+  CreateCaseDialog,
+  type CreatedCase,
+} from "@/components/cases/create-case-dialog";
+import { EditCaseDialog, type EditableCase } from "@/components/cases/edit-case-dialog";
 
 type Offer = Tables<"offers">;
 type Category = Tables<"categories">;
 type PackageRow = Tables<"packages">;
+type OfferCaseLinkRow = Tables<"offer_case_links">;
+type CaseRow = Tables<"cases">;
 
 type OfferEditWizardProps = {
   offer: Offer;
   categories: Category[];
   packages: PackageRow[];
+  caseLinks: OfferCaseLinkRow[];
+  availableCases: Pick<
+    CaseRow,
+    "id" | "title" | "summary" | "problem" | "solution" | "result" | "created_at"
+  >[];
 };
 
 export function OfferEditWizard({
   offer,
   categories,
   packages,
+  caseLinks,
+  availableCases,
 }: OfferEditWizardProps) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isPending, startTransition] = useTransition();
   const [categoryOpen, setCategoryOpen] = useState(false);
+
+  const [hasReel, setHasReel] = useState(false);
+  const [reelVersion, setReelVersion] = useState(0);
+
+  const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
+  const [availableCasesState, setAvailableCasesState] = useState(availableCases);
+  const [editingCase, setEditingCase] = useState<EditableCase | null>(null);
 
   const [submitIntent, setSubmitIntent] = useState<"publish" | "draft" | null>(
     null,
@@ -95,6 +118,12 @@ export function OfferEditWizard({
         revisions: pkg.revisions,
         _deleted: false,
       })),
+      caseLinks: (caseLinks ?? []).map((l) => ({
+        id: l.id,
+        caseId: l.case_id,
+        position: l.position,
+        _deleted: false,
+      })),
     },
   });
 
@@ -110,6 +139,11 @@ export function OfferEditWizard({
     name: "packages",
   });
 
+  const caseLinksArray = useFieldArray({
+    control,
+    name: "caseLinks",
+  });
+
   const packagesValues = watch("packages");
   const hasVisiblePackages = (packagesValues ?? []).some(
     (pkg) => pkg && !pkg._deleted,
@@ -118,6 +152,46 @@ export function OfferEditWizard({
   const currencyCode = watch("offer.currencyCode") ?? offer.currency_code;
   const offerStatus = watch("offer.status");
 
+  const visibleCaseLinks = (watch("caseLinks") ?? []).filter((c) => !c?._deleted);
+
+  const attachCase = (caseId: string) => {
+    const existingIndex = (watch("caseLinks") ?? []).findIndex(
+      (x) => x.caseId === caseId,
+    );
+
+    if (existingIndex >= 0) {
+      setValue(`caseLinks.${existingIndex}._deleted`, false, { shouldDirty: true });
+      return;
+    }
+
+    caseLinksArray.append({
+      id: crypto.randomUUID(),
+      caseId,
+      position: caseLinksArray.fields.length,
+      _deleted: false,
+    });
+  };
+
+  const detachCase = (caseId: string) => {
+    const idx = (watch("caseLinks") ?? []).findIndex(
+      (x) => x.caseId === caseId && !x._deleted,
+    );
+    if (idx >= 0) {
+      setValue(`caseLinks.${idx}._deleted`, true, { shouldDirty: true });
+    }
+  };
+
+  const onCaseCreated = (created: CreatedCase) => {
+    setAvailableCasesState((prev) => [created, ...prev]);
+    attachCase(created.id);
+  };
+
+  const onCaseUpdated = (updated: EditableCase) => {
+    setAvailableCasesState((prev) =>
+      prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)),
+    );
+  };
+
   useEffect(() => {
     if (!isPending) {
       setSubmitIntent(null);
@@ -125,9 +199,61 @@ export function OfferEditWizard({
     }
   }, [isPending]);
 
-  function goToStep(next: 1 | 2) {
+  function goToStep(next: 1 | 2 | 3) {
     setStep(next);
   }
+
+  const reelSrc = useMemo(() => {
+    if (!hasReel) return null;
+    return `/api/offers/${offer.id}/reel?redirect=1&v=${reelVersion}`;
+  }, [hasReel, offer.id, reelVersion]);
+
+  const reelUpload = useSupabaseUpload({
+    bucketName: "offer-media",
+    maxFiles: 1,
+    maxFileSize: 50 * 1024 * 1024,
+    allowedMimeTypes: ["video/mp4", "video/webm", "video/quicktime"],
+    uploadFn: async (file) => {
+      const form = new FormData();
+      form.set("file", file);
+
+      const res = await fetch(`/api/offers/${offer.id}/reel`, {
+        method: "POST",
+        body: form,
+      });
+
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(body?.error || "Upload failed");
+      }
+    },
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch(`/api/offers/${offer.id}/reel`, {
+        method: "GET",
+      });
+      if (cancelled) return;
+      setHasReel(res.ok);
+    })().catch(() => {
+      if (!cancelled) setHasReel(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [offer.id]);
+
+  useEffect(() => {
+    if (reelUpload.isSuccess) {
+      setHasReel(true);
+      setReelVersion((v) => v + 1);
+    }
+  }, [reelUpload.isSuccess]);
 
   function onSubmit(values: OfferWithPackagesValues) {
     const nextStatus =
@@ -175,6 +301,16 @@ export function OfferEditWizard({
           className="w-full sm:w-auto"
         >
           2. Packages & pricing
+        </Button>
+
+        <Button
+          type="button"
+          variant={step === 3 ? "default" : "outline"}
+          size="sm"
+          onClick={() => goToStep(3)}
+          className="w-full sm:w-auto"
+        >
+          3. Reel video
         </Button>
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground sm:ml-auto">
@@ -576,6 +712,117 @@ export function OfferEditWizard({
             </FieldGroup>
           </FieldSet>
 
+          <FieldSet>
+            <div className="flex items-center justify-between gap-3">
+              <FieldLegend>Portfolio cases</FieldLegend>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateCaseOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create case
+              </Button>
+            </div>
+            <FieldDescription>
+              Attach existing cases (or create a new one) to showcase in this offer.
+            </FieldDescription>
+
+            <div className="space-y-4">
+              {availableCasesState.length === 0 ? (
+                <Empty>
+                  <EmptyContent>
+                    <EmptyDescription>
+                      No cases yet. Create your first case.
+                    </EmptyDescription>
+                  </EmptyContent>
+                </Empty>
+              ) : null}
+
+              <div className="grid gap-2">
+                {availableCasesState.slice(0, 12).map((c) => {
+                  const selected = visibleCaseLinks.some((x) => x.caseId === c.id);
+                  return (
+                    <div
+                      key={c.id}
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg border px-2 py-2 text-sm transition",
+                        selected
+                          ? "border-primary bg-primary/10"
+                          : "hover:border-primary/60",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-center justify-between gap-3 px-1 text-left"
+                        onClick={() => {
+                          if (selected) {
+                            detachCase(c.id);
+                            return;
+                          }
+                          attachCase(c.id);
+                        }}
+                      >
+                        <span className="line-clamp-1">{c.title}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {selected ? "Selected" : "Add"}
+                        </span>
+                      </button>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setEditingCase({
+                            id: c.id,
+                            title: c.title,
+                            summary: c.summary ?? null,
+                            problem: c.problem ?? null,
+                            solution: c.solution ?? null,
+                            result: c.result ?? null,
+                          });
+                        }}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {visibleCaseLinks.length > 0 ? (
+                <div className="text-xs text-muted-foreground">
+                  Selected: {visibleCaseLinks.length}
+                </div>
+              ) : null}
+            </div>
+          </FieldSet>
+
+          <CreateCaseDialog
+            open={isCreateCaseOpen}
+            onOpenChange={setIsCreateCaseOpen}
+            onCreated={onCaseCreated}
+          />
+
+          {editingCase ? (
+            <EditCaseDialog
+              open={!!editingCase}
+              onOpenChange={(next) => {
+                if (!next) setEditingCase(null);
+              }}
+              value={editingCase}
+              onUpdated={(updated) => {
+                onCaseUpdated(updated);
+                setEditingCase(null);
+              }}
+            />
+          ) : null}
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Button
               type="button"
@@ -584,6 +831,15 @@ export function OfferEditWizard({
               className="w-full sm:w-auto"
             >
               Back
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => goToStep(3)}
+              className="w-full sm:w-auto"
+            >
+              Next: Reel video
             </Button>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
@@ -629,10 +885,135 @@ export function OfferEditWizard({
           </div>
         </div>
       )}
+
+      {/* STEP 3: REEL VIDEO */}
+      {step === 3 && (
+        <div className="space-y-6">
+          <FieldSet>
+            <FieldLegend>Reel video</FieldLegend>
+            <FieldDescription>
+              Upload a vertical intro video (like Reels/Shorts). This appears on the left
+              side of your public offer page.
+            </FieldDescription>
+
+            <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+              <div className="w-full">
+                <div className="aspect-9/16 w-full overflow-hidden rounded-xl border bg-black">
+                  {reelSrc ? (
+                    <video
+                      key={reelSrc}
+                      src={reelSrc}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                      No reel uploaded yet.
+                    </div>
+                  )}
+                </div>
+
+                {hasReel && (
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={async () => {
+                        const res = await fetch(`/api/offers/${offer.id}/reel`, {
+                          method: "DELETE",
+                        });
+                        if (res.ok) {
+                          setHasReel(false);
+                          setReelVersion((v) => v + 1);
+                          reelUpload.setFiles([]);
+                          reelUpload.setErrors([]);
+                        }
+                      }}
+                    >
+                      Remove video
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <Dropzone {...reelUpload} className="p-6">
+                  <DropzoneEmptyState />
+                  <DropzoneContent />
+                </Dropzone>
+
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Recommended: 9:16, MP4/WebM, up to 50MB.
+                </p>
+              </div>
+            </div>
+          </FieldSet>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => goToStep(2)}
+              className="w-full sm:w-auto"
+            >
+              Back
+            </Button>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={isPending}
+                onClick={() => {
+                  setSubmitIntent("draft");
+                  setLoadingButton("draft");
+                  form.setValue("offer.status", "draft");
+                }}
+                className="w-full sm:w-auto"
+              >
+                {loadingButton === "draft" && isPending && (
+                  <Spinner className="mr-2 h-4 w-4" />
+                )}
+                {loadingButton === "draft" && isPending
+                  ? "Saving..."
+                  : "Save as draft"}
+              </Button>
+
+              <Button
+                type="submit"
+                disabled={isPending}
+                onClick={() => {
+                  setSubmitIntent("publish");
+                  setLoadingButton("publish");
+                  form.setValue("offer.status", "active");
+                }}
+                className="w-full sm:w-auto"
+              >
+                {loadingButton === "publish" && isPending && (
+                  <Spinner className="mr-2 h-4 w-4" />
+                )}
+                {loadingButton === "publish" && isPending
+                  ? "Publishing..."
+                  : "Publish offer"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
 
       <div className="hidden lg:block lg:sticky min-w-[480px] w-80 border-l pl-2 pb-2 pr-2">
-        <OfferAssistantPanel form={form} />
+        <OfferAssistantPanel
+          form={form}
+          availableCases={availableCasesState.map((c) => ({
+            id: c.id,
+            title: c.title,
+          }))}
+          onCaseCreated={onCaseCreated}
+          onCaseUpdated={onCaseUpdated}
+        />
       </div>
     </div>
   );

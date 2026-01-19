@@ -17,8 +17,7 @@ export default async function OffersPage() {
         name
       ),
       profiles (
-        full_name,
-        avatar_url
+        full_name
       )
     `)
     .eq("offer_status", "active")

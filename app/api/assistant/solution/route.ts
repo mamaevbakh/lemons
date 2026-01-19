@@ -1,25 +1,22 @@
 import { NextRequest } from "next/server";
 import { createAgentUIStreamResponse } from "ai";
 
-import { offerAgent } from "@/ai/agents/offer-agent";
+import { solutionAgent } from "@/ai/agents/solution-agent";
 import { createClient } from "@/lib/supabase/server";
 import {
-  OfferWithPackagesDraftSchema,
-  type OfferWithPackagesDraftValues,
-} from "@/lib/validation/offer-with-packages";
-
-
+  SolutionEditorDraftSchema,
+  type SolutionEditorDraftValues,
+} from "@/lib/validation/solution-editor";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { messages, offerId, editorState, availableCases } = body as {
+  const { messages, solutionId, editorState, availableCases } = body as {
     messages: any;
-    offerId: string;
-    editorState?: OfferWithPackagesDraftValues;
+    solutionId: string;
+    editorState?: SolutionEditorDraftValues;
     availableCases?: Array<{ id: string; title: string }>;
   };
 
-  // Get current user from Supabase (edge/server helper, like you do elsewhere)
   const supabase = await createClient();
   const {
     data: { user },
@@ -27,22 +24,20 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return new Response(
-      JSON.stringify({ error: "Not authenticated" }),
-      { status: 401 },
-    );
+    return new Response(JSON.stringify({ error: "Not authenticated" }), {
+      status: 401,
+    });
   }
 
   const parsedEditorState = editorState
-    ? OfferWithPackagesDraftSchema.parse(editorState)
+    ? SolutionEditorDraftSchema.parse(editorState)
     : undefined;
 
-  // Pass messages + call options to the agent
   return createAgentUIStreamResponse({
-    agent: offerAgent,
+    agent: solutionAgent,
     messages,
     options: {
-      offerId,
+      solutionId,
       userId: user.id,
       editorState: parsedEditorState,
       availableCases,

@@ -14,7 +14,7 @@ export async function saveOfferAndPackagesAction(input: unknown) {
     throw new Error("Invalid offer + packages payload");
   }
 
-  const { offerId, offer, packages } = parsed.data;
+  const { offerId, offer, packages, caseLinks } = parsed.data;
 
   const supabase = await createClient();
   const {
@@ -84,6 +84,44 @@ export async function saveOfferAndPackagesAction(input: unknown) {
     // trigger recomputes starting_price_cents & standard_delivery_days
   }
 
-  // 3) Full refresh of the edit page
+  // 3) Offer portfolio case links
+  const caseLinksToDelete = (caseLinks ?? []).filter((c) => c._deleted);
+  const caseLinksToUpsert = (caseLinks ?? []).filter((c) => !c._deleted);
+
+  if (caseLinksToDelete.length) {
+    const { error: delError } = await supabase
+      .from("offer_case_links")
+      .delete()
+      .in(
+        "id",
+        caseLinksToDelete.map((c) => c.id),
+      );
+
+    if (delError) {
+      console.error(delError);
+      throw new Error("Failed to delete offer case links");
+    }
+  }
+
+  if (caseLinksToUpsert.length) {
+    const { error: upsertError } = await supabase
+      .from("offer_case_links")
+      .upsert(
+        caseLinksToUpsert.map((c, idx) => ({
+          id: c.id,
+          offer_id: offerId,
+          case_id: c.caseId,
+          position: idx,
+        })),
+        { onConflict: "id" },
+      );
+
+    if (upsertError) {
+      console.error(upsertError);
+      throw new Error("Failed to save offer case links");
+    }
+  }
+
+  // 4) Full refresh of the edit page
   redirect(`/dashboard/offers/${offerId}`);
 }

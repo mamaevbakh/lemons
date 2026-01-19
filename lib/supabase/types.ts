@@ -39,6 +39,89 @@ export type Database = {
   }
   public: {
     Tables: {
+      case_media: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          media_id: string
+          position: number
+          role: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          media_id: string
+          position?: number
+          role?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          media_id?: string
+          position?: number
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_media_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_media_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "media_objects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cases: {
+        Row: {
+          created_at: string
+          id: string
+          owner_profile_id: string
+          problem: string | null
+          result: string | null
+          solution: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_profile_id: string
+          problem?: string | null
+          result?: string | null
+          solution?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_profile_id?: string
+          problem?: string | null
+          result?: string | null
+          solution?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cases_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -59,6 +142,134 @@ export type Database = {
           slug?: string
         }
         Relationships: []
+      }
+      media_objects: {
+        Row: {
+          bucket: string
+          created_at: string
+          duration_seconds: number | null
+          height: number | null
+          id: string
+          mime_type: string | null
+          owner_profile_id: string
+          path: string
+          size_bytes: number | null
+          source_url: string | null
+          width: number | null
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          duration_seconds?: number | null
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          owner_profile_id: string
+          path: string
+          size_bytes?: number | null
+          source_url?: string | null
+          width?: number | null
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          duration_seconds?: number | null
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          owner_profile_id?: string
+          path?: string
+          size_bytes?: number | null
+          source_url?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_objects_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offer_case_links: {
+        Row: {
+          case_id: string
+          id: string
+          offer_id: string
+          position: number
+        }
+        Insert: {
+          case_id: string
+          id?: string
+          offer_id: string
+          position?: number
+        }
+        Update: {
+          case_id?: string
+          id?: string
+          offer_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_case_links_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_case_links_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offer_media: {
+        Row: {
+          created_at: string
+          id: string
+          media_id: string
+          offer_id: string
+          position: number
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_id: string
+          offer_id: string
+          position?: number
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_id?: string
+          offer_id?: string
+          position?: number
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_media_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "media_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_media_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       offers: {
         Row: {
@@ -242,9 +453,47 @@ export type Database = {
           },
         ]
       }
+      profile_media: {
+        Row: {
+          created_at: string
+          id: string
+          media_id: string
+          profile_id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_id: string
+          profile_id: string
+          role: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_id?: string
+          profile_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_media_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "media_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_media_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
-          avatar_url: string | null
           bio: string | null
           country: string | null
           created_at: string
@@ -257,7 +506,6 @@ export type Database = {
           years_of_experience: number | null
         }
         Insert: {
-          avatar_url?: string | null
           bio?: string | null
           country?: string | null
           created_at?: string
@@ -270,7 +518,6 @@ export type Database = {
           years_of_experience?: number | null
         }
         Update: {
-          avatar_url?: string | null
           bio?: string | null
           country?: string | null
           created_at?: string
@@ -284,6 +531,216 @@ export type Database = {
         }
         Relationships: []
       }
+      solution_case_links: {
+        Row: {
+          case_id: string
+          id: string
+          position: number
+          solution_id: string
+        }
+        Insert: {
+          case_id: string
+          id?: string
+          position?: number
+          solution_id: string
+        }
+        Update: {
+          case_id?: string
+          id?: string
+          position?: number
+          solution_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solution_case_links_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solution_case_links_solution_id_fkey"
+            columns: ["solution_id"]
+            isOneToOne: false
+            referencedRelation: "solutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solution_links: {
+        Row: {
+          created_at: string
+          id: string
+          platform: string
+          position: number
+          solution_id: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          platform: string
+          position?: number
+          solution_id: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          platform?: string
+          position?: number
+          solution_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solution_links_solution_id_fkey"
+            columns: ["solution_id"]
+            isOneToOne: false
+            referencedRelation: "solutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solution_media: {
+        Row: {
+          created_at: string
+          id: string
+          media_id: string
+          position: number
+          role: string
+          solution_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_id: string
+          position?: number
+          role?: string
+          solution_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_id?: string
+          position?: number
+          role?: string
+          solution_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solution_media_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "media_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solution_media_solution_id_fkey"
+            columns: ["solution_id"]
+            isOneToOne: false
+            referencedRelation: "solutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solution_pricing_items: {
+        Row: {
+          created_at: string
+          cta_label: string | null
+          cta_url: string | null
+          description: string | null
+          id: string
+          position: number
+          price_text: string
+          solution_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          description?: string | null
+          id?: string
+          position?: number
+          price_text: string
+          solution_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          description?: string | null
+          id?: string
+          position?: number
+          price_text?: string
+          solution_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solution_pricing_items_solution_id_fkey"
+            columns: ["solution_id"]
+            isOneToOne: false
+            referencedRelation: "solutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solutions: {
+        Row: {
+          created_at: string
+          description: string | null
+          featured_offer_ids: string[]
+          headline: string | null
+          id: string
+          owner_id: string
+          published_at: string | null
+          slug: string
+          status: Database["public"]["Enums"]["solution_status"]
+          title: string
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          featured_offer_ids?: string[]
+          headline?: string | null
+          id?: string
+          owner_id: string
+          published_at?: string | null
+          slug: string
+          status?: Database["public"]["Enums"]["solution_status"]
+          title: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          featured_offer_ids?: string[]
+          headline?: string | null
+          id?: string
+          owner_id?: string
+          published_at?: string | null
+          slug?: string
+          status?: Database["public"]["Enums"]["solution_status"]
+          title?: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solutions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -296,6 +753,7 @@ export type Database = {
     }
     Enums: {
       offer_status: "draft" | "active"
+      solution_status: "draft" | "published" | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -427,6 +885,7 @@ export const Constants = {
   public: {
     Enums: {
       offer_status: ["draft", "active"],
+      solution_status: ["draft", "published", "archived"],
     },
   },
 } as const

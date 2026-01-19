@@ -13,7 +13,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
-import { Home, Tag, ShoppingCart, Wallet, BadgeDollarSign } from "lucide-react"
+import { Home, Tag, ShoppingCart, Wallet, BadgeDollarSign, Sparkles } from "lucide-react"
 import { NavUser } from "./nav-user"
 
 type SidebarLeftUser = {
@@ -47,6 +47,14 @@ export function SidebarLeft({
                   <Link href="/dashboard/offers">
                     <Tag />
                     <span>Offers</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/dashboard/solutions">
+                    <Sparkles />
+                    <span>Solutions</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
