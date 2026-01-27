@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
+import { Trash2, Loader2, ImageIcon, Film } from "lucide-react";
 
 import {
   Sheet,
@@ -16,6 +18,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from "@/components/dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
+
+type MediaItem = {
+  id: string;
+  role: "thumbnail" | "gallery";
+  position: number;
+  mediaId: string;
+  mimeType: string | null;
+  signedUrl: string;
+};
 
 export type EditableCase = {
   id: string;
@@ -42,7 +53,53 @@ export function EditCaseDialog({ open, onOpenChange, value, onUpdated }: Props) 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Existing media state
+  const [existingMedia, setExistingMedia] = useState<MediaItem[]>([]);
+  const [loadingMedia, setLoadingMedia] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
   const canSubmit = title.trim().length >= 3 && !isSaving;
+
+  // Fetch existing media
+  const fetchMedia = useCallback(async () => {
+    setLoadingMedia(true);
+    try {
+      const res = await fetch(`/api/cases/${value.id}/media`);
+      if (res.ok) {
+        const data = await res.json();
+        setExistingMedia(data.items ?? []);
+      }
+    } catch {
+      // silently fail, media just won't show
+    } finally {
+      setLoadingMedia(false);
+    }
+  }, [value.id]);
+
+  // Delete media handler
+  const handleDeleteMedia = async (mediaItem: MediaItem) => {
+    setDeletingIds((prev) => new Set(prev).add(mediaItem.id));
+    try {
+      const res = await fetch(
+        `/api/cases/${value.id}/media?mediaId=${mediaItem.mediaId}`,
+        { method: "DELETE" }
+      );
+      if (res.ok) {
+        setExistingMedia((prev) => prev.filter((m) => m.id !== mediaItem.id));
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(mediaItem.id);
+        return next;
+      });
+    }
+  };
+
+  const existingThumbnail = existingMedia.find((m) => m.role === "thumbnail");
+  const existingGallery = existingMedia.filter((m) => m.role === "gallery");
 
   const thumbnailUpload = useSupabaseUpload({
     bucketName: "case-media",
@@ -112,8 +169,11 @@ export function EditCaseDialog({ open, onOpenChange, value, onUpdated }: Props) 
     galleryUpload.setFiles([]);
     thumbnailUpload.setErrors([]);
     galleryUpload.setErrors([]);
+
+    // Fetch existing media when dialog opens
+    fetchMedia();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, value.id]);
+  }, [open, value.id, fetchMedia]);
 
   async function onSubmit() {
     if (!canSubmit) return;
@@ -215,19 +275,115 @@ export function EditCaseDialog({ open, onOpenChange, value, onUpdated }: Props) 
 
             <div className="space-y-2">
               <FieldLabel>Thumbnail (optional)</FieldLabel>
-              <Dropzone {...thumbnailUpload}>
-                <DropzoneEmptyState />
-                <DropzoneContent />
-              </Dropzone>
-              <p className="text-xs text-muted-foreground">Uploads to the private bucket: case-media</p>
+              
+              {/* Show existing thumbnail */}
+              {loadingMedia ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading media...
+                </div>
+              ) : existingThumbnail ? (
+                <div className="relative group rounded-lg border overflow-hidden bg-muted">
+                  <div className="aspect-video relative">
+                    <Image
+                      src={existingThumbnail.signedUrl}
+                      alt="Thumbnail"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleDeleteMedia(existingThumbnail)}
+                    disabled={deletingIds.has(existingThumbnail.id)}
+                  >
+                    {deletingIds.has(existingThumbnail.id) ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <Dropzone {...thumbnailUpload}>
+                  <DropzoneEmptyState />
+                  <DropzoneContent />
+                </Dropzone>
+              )}
+              
+              {/* Show dropzone for replacement if thumbnail exists */}
+              {existingThumbnail && (
+                <div className="pt-2">
+                  <p className="text-xs text-muted-foreground mb-2">Replace thumbnail:</p>
+                  <Dropzone {...thumbnailUpload}>
+                    <DropzoneEmptyState />
+                    <DropzoneContent />
+                  </Dropzone>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
               <FieldLabel>Gallery media (optional)</FieldLabel>
+              
+              {/* Show existing gallery items */}
+              {existingGallery.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {existingGallery.map((item) => (
+                    <div
+                      key={item.id}
+                      className="relative group rounded-lg border overflow-hidden bg-muted aspect-square"
+                    >
+                      {item.mimeType?.startsWith("video/") ? (
+                        <>
+                          <video
+                            src={item.signedUrl}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <Film className="h-6 w-6 text-white drop-shadow-lg" />
+                          </div>
+                        </>
+                      ) : (
+                        <Image
+                          src={item.signedUrl}
+                          alt="Gallery item"
+                          fill
+                          className="object-cover"
+                        />
+                      )}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleDeleteMedia(item)}
+                        disabled={deletingIds.has(item.id)}
+                      >
+                        {deletingIds.has(item.id) ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Dropzone for adding more gallery items */}
               <Dropzone {...galleryUpload}>
                 <DropzoneEmptyState />
                 <DropzoneContent />
               </Dropzone>
+              <p className="text-xs text-muted-foreground">
+                Up to 6 items total. {existingGallery.length > 0 && `${existingGallery.length} already uploaded.`}
+              </p>
             </div>
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}

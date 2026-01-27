@@ -9,8 +9,10 @@ import type { UseFormReturn } from "react-hook-form";
 import {
   Conversation,
   ConversationContent,
+  ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import { Sparkles } from "lucide-react";
 import {
   PromptInput,
   PromptInputBody,
@@ -348,8 +350,15 @@ export function SolutionAssistantPanel({
   return (
     <div className="flex h-full flex-col">
       <Conversation>
-        <ConversationContent>
-          {messages.map((m) => (
+        {messages.length === 0 ? (
+          <ConversationEmptyState
+            icon={<Sparkles className="h-8 w-8" />}
+            title="Mony AI Assistant"
+            description="Ask me to improve your solution page, write headlines, update descriptions, or manage your portfolio cases."
+          />
+        ) : (
+          <ConversationContent>
+            {messages.map((m) => (
             <Message key={m.id} from={m.role}>
               <MessageContent>
                 {m.parts.map((part, idx) => {
@@ -380,7 +389,8 @@ export function SolutionAssistantPanel({
               </MessageContent>
             </Message>
           ))}
-        </ConversationContent>
+          </ConversationContent>
+        )}
         <ConversationScrollButton />
       </Conversation>
 

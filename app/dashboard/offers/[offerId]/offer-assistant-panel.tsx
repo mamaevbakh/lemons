@@ -9,6 +9,7 @@ import type { UseFormReturn } from "react-hook-form";
 import {
   Conversation,
   ConversationContent,
+  ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import {
@@ -30,6 +31,7 @@ import {
   type OfferWithPackagesValues,
 } from "@/lib/validation/offer-with-packages";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
+import { Sparkles } from "lucide-react";
 
 const DraftPatchSchema = z.object({
   type: z.literal("draftPatch"),
@@ -403,8 +405,15 @@ export function OfferAssistantPanel({
     <div className="flex h-full flex-col">
       {/* Messages */}
       <Conversation>
-        <ConversationContent>
-          {messages.map((m) => (
+        {messages.length === 0 ? (
+          <ConversationEmptyState
+            icon={<Sparkles className="h-8 w-8" />}
+            title="Mony AI Assistant"
+            description="Ask me to improve your offer title, write descriptions, adjust package pricing, or manage your portfolio cases."
+          />
+        ) : (
+          <ConversationContent>
+            {messages.map((m) => (
             <Message key={m.id} from={m.role}>
               <MessageContent>
                 {m.parts.map((part, idx) => {
@@ -458,7 +467,8 @@ export function OfferAssistantPanel({
               </MessageContent>
             </Message>
           ))}
-        </ConversationContent>
+          </ConversationContent>
+        )}
         <ConversationScrollButton />
       </Conversation>
 

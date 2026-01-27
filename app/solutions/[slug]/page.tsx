@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/types";
@@ -7,6 +8,22 @@ import type { Tables } from "@/lib/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { CaseThumbnail } from "@/components/solutions/case-thumbnail";
+import { SocialLinkCard } from "@/components/solutions/social-link-card";
+import { PortfolioGrid } from "@/components/solutions/portfolio-grid";
+import {
+  SolutionPageContent,
+  AnimatedHeader,
+  AnimatedSection,
+} from "@/components/solutions/animated-page";
 
 type Solution = Tables<"solutions">;
 type SolutionLinkRow = Tables<"solution_links">;
@@ -18,6 +35,55 @@ type OfferRow = Tables<"offers">;
 type RouteParams = {
   slug: string;
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<RouteParams>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const supabase = await createClient();
+
+  const { data: solution } = await supabase
+    .from("solutions")
+    .select("id, title, headline, description")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .maybeSingle<Pick<Solution, "id" | "title" | "headline" | "description">>();
+
+  if (!solution) {
+    return { title: "Solution not found" };
+  }
+
+  const { data: mediaRoles } = await supabase
+    .from("solution_media")
+    .select("role")
+    .eq("solution_id", solution.id);
+
+  const hasCover = (mediaRoles ?? []).some((m) => m.role === "cover");
+  const coverUrl = hasCover
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/solutions/${solution.id}/media/cover?redirect=1`
+    : undefined;
+
+  const description = solution.headline || solution.description?.slice(0, 160) || "";
+
+  return {
+    title: solution.title,
+    description,
+    openGraph: {
+      title: solution.title,
+      description,
+      type: "website",
+      images: coverUrl ? [{ url: coverUrl, width: 1200, height: 630 }] : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: solution.title,
+      description,
+      images: coverUrl ? [coverUrl] : [],
+    },
+  };
+}
 
 export default async function SolutionPublicPage({
   params,
@@ -89,7 +155,7 @@ export default async function SolutionPublicPage({
   const offersById = new Map((offers ?? []).map((o) => [o.id, o]));
   const orderedOffers = featuredOfferIds
     .map((id) => offersById.get(id))
-    .filter(Boolean) as OfferRow[];
+    .filter((o): o is OfferRow => o !== undefined && o.offer_status === "active");
 
   const logoSrc = hasLogo
     ? `/api/solutions/${solution.id}/media/logo?redirect=1`
@@ -103,8 +169,30 @@ export default async function SolutionPublicPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10">
+      <SolutionPageContent>
+      {/* Breadcrumb */}
+      <Breadcrumb className="mb-6">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/">Home</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/offers">Solutions</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{solution.title}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* LinkedIn-style header */}
-      <section className="overflow-hidden rounded-xl border bg-card">
+      <AnimatedHeader className="overflow-hidden rounded-xl border bg-card">
         <div className="relative">
           {coverSrc ? (
             <img
@@ -140,21 +228,18 @@ export default async function SolutionPublicPage({
         <div className="px-6 pb-6 pt-12">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                  {solution.title}
-                </h1>
-                <Badge>Solution</Badge>
-              </div>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                {solution.title}
+              </h1>
               {solution.headline ? (
-                <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+                <p className="mt-1 text-muted-foreground sm:text-lg">
                   {solution.headline}
                 </p>
               ) : null}
             </div>
 
             {solution.website_url ? (
-              <Button asChild>
+              <Button variant="outline" asChild>
                 <a href={solution.website_url} target="_blank" rel="noreferrer">
                   Visit website
                 </a>
@@ -162,13 +247,13 @@ export default async function SolutionPublicPage({
             ) : null}
           </div>
         </div>
-      </section>
+      </AnimatedHeader>
 
       {/* About */}
-      <section className="mt-10 grid gap-8 lg:grid-cols-[1.3fr_0.7fr]">
+      <AnimatedSection className="mt-12 grid gap-8 lg:grid-cols-[1.3fr_0.7fr]">
         <div>
           <h2 className="text-lg font-semibold">About</h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+          <p className="mt-3 whitespace-pre-wrap text-muted-foreground leading-relaxed">
             {solution.description ?? ""}
           </p>
         </div>
@@ -191,56 +276,43 @@ export default async function SolutionPublicPage({
             </div>
           ) : null}
 
-          <h2 className="text-lg font-semibold">Social</h2>
-          <div className="mt-3 space-y-2">
-            {(links ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No links yet.</p>
-            ) : (
-              (links as SolutionLinkRow[]).map((l) => (
-                <a
-                  key={l.id}
-                  href={l.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block rounded-lg border bg-card px-3 py-2 text-sm transition hover:border-primary/60"
-                >
-                  <div className="font-medium">{l.platform}</div>
-                  <div className="text-xs text-muted-foreground line-clamp-1">
-                    {l.url}
-                  </div>
-                </a>
-              ))
-            )}
-          </div>
+          {(links ?? []).length > 0 && (
+            <>
+              <h2 className="text-lg font-semibold">Social</h2>
+              <div className="mt-3 space-y-2">
+                {(links as SolutionLinkRow[]).map((l) => (
+                  <SocialLinkCard
+                    key={l.id}
+                    platform={l.platform}
+                    url={l.url}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
-      </section>
+      </AnimatedSection>
 
       {/* Pricing */}
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold">Pricing</h2>
-        {(pricing ?? []).length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">No pricing yet.</p>
-        ) : (
+      {(pricing ?? []).length > 0 && (
+        <AnimatedSection className="mt-12">
+          <h2 className="text-lg font-semibold">Pricing</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {(pricing as PricingRow[]).map((p) => (
-              <Card key={p.id} className="p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium">{p.title}</div>
-                    <div className="mt-1 text-2xl font-semibold tracking-tight">
-                      {p.price_text}
-                    </div>
+              <Card key={p.id} className="flex flex-col p-5 transition-shadow hover:shadow-md">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">{p.title}</div>
+                  <div className="mt-1 text-3xl font-bold tracking-tight">
+                    {p.price_text}
                   </div>
                 </div>
 
-                {p.description ? (
-                  <p className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">
-                    {p.description}
-                  </p>
-                ) : null}
+                <p className="mt-4 flex-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                  {p.description ?? ""}
+                </p>
 
                 {p.cta_url ? (
-                  <div className="mt-4">
+                  <div className="mt-6">
                     <Button asChild className="w-full">
                       <a href={p.cta_url} target="_blank" rel="noreferrer">
                         {p.cta_label || "Get started"}
@@ -251,85 +323,58 @@ export default async function SolutionPublicPage({
               </Card>
             ))}
           </div>
-        )}
-      </section>
+        </AnimatedSection>
+      )}
 
       {/* Featured offers */}
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold">Featured offers</h2>
-        {orderedOffers.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">No featured offers.</p>
-        ) : (
+      {orderedOffers.length > 0 && (
+        <AnimatedSection className="mt-12">
+          <h2 className="text-lg font-semibold">Featured offers</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {orderedOffers.map((o) => (
               <Link
                 key={o.id}
                 href={`/${o.slug}`}
-                className="rounded-xl border bg-card p-5 transition hover:border-primary/60"
+                className="rounded-xl border bg-card p-5 transition-all hover:border-primary/60 hover:shadow-md"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-medium line-clamp-1">{o.title}</div>
-                  <Badge variant={o.offer_status === "active" ? "default" : "outline"}>
-                    {o.offer_status === "active" ? "Active" : "Draft"}
-                  </Badge>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+                <div className="font-medium line-clamp-1">{o.title}</div>
+                <p className="mt-2 text-muted-foreground line-clamp-2">
                   {o.description ?? "No description yet."}
                 </p>
               </Link>
             ))}
           </div>
-        )}
-      </section>
+        </AnimatedSection>
+      )}
 
       {/* Portfolio */}
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold">Portfolio</h2>
-        {orderedCases.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">No cases yet.</p>
-        ) : (
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {orderedCases.map((c) => (
-              <Card key={c.id} className="overflow-hidden">
-                  <div className="aspect-video w-full bg-muted">
-                  <img
-                    src={`/api/solutions/${solution.id}/cases/${c.id}/thumbnail?redirect=1`}
-                    alt={c.title}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-                <div className="p-5">
-                  <div className="text-sm font-medium">{c.title}</div>
-                  <p className="mt-2 text-sm text-muted-foreground line-clamp-3">
-                    {c.summary ?? c.result ?? c.problem ?? ""}
-                  </p>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Portfolio */}
+      {orderedCases.length > 0 && (
+        <AnimatedSection className="mt-12">
+          <h2 className="text-lg font-semibold">Portfolio</h2>
+          <PortfolioGrid cases={orderedCases} solutionId={solution.id} />
+        </AnimatedSection>
+      )}
 
       {/* Footer CTA */}
-      <section className="mt-12 rounded-2xl border bg-card p-6 sm:p-8">
+      <AnimatedSection className="mt-16 rounded-2xl border bg-card p-6 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Work with {solution.title}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h2 className="text-xl font-semibold">Work with {solution.title}</h2>
+            <p className="mt-1 text-muted-foreground">
               Ready to start? Reach out and let’s talk.
             </p>
           </div>
           {solution.website_url ? (
             <Button asChild>
               <a href={solution.website_url} target="_blank" rel="noreferrer">
-                Contact
+                Get in touch
               </a>
             </Button>
           ) : null}
         </div>
-      </section>
+      </AnimatedSection>
+      </SolutionPageContent>
     </div>
   );
 }
