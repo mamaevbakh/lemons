@@ -58,9 +58,17 @@ async function DashboardAuthedLayout({
     (typeof user.user_metadata?.picture === "string" && user.user_metadata.picture) ||
     ""
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("subscription_tier")
+    .eq("id", user.id)
+    .single()
+
+  const subscriptionTier = profile?.subscription_tier ?? "free"
+
   return (
     <SidebarProvider>
-      <SidebarLeft user={{ name, email, avatar }} />
+      <SidebarLeft user={{ name, email, avatar }} subscriptionTier={subscriptionTier} />
 
       <SidebarInset>
         <header className="bg-background sticky top-0 flex h-14 shrink-0 items-center gap-2 border-b px-3">

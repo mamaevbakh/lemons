@@ -2,19 +2,25 @@ import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
 
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createSolutionAction } from "./create-actions";
+import { GatedCreateButton } from "@/components/gated-create-button";
 
 export default async function SolutionsPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const { data: solutions, error } = await supabase
-    .from("solutions")
-    .select(
-      "id, title, headline, description, status, slug, website_url, created_at, updated_at, published_at",
-    )
-    .order("created_at", { ascending: false });
+  const [{ data: solutions, error }, { data: canCreate }] = await Promise.all([
+    supabase
+      .from("solutions")
+      .select(
+        "id, title, headline, description, status, slug, website_url, created_at, updated_at, published_at",
+      )
+      .order("created_at", { ascending: false }),
+    supabase.rpc("can_create_solution", { user_id: user!.id }),
+  ]);
 
   if (error) {
     return (
@@ -29,9 +35,9 @@ export default async function SolutionsPage() {
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Your solutions</h1>
-          <form action={createSolutionAction}>
-            <Button type="submit">Create solution</Button>
-          </form>
+          <GatedCreateButton canCreate={canCreate ?? false} entityType="solution" createAction={createSolutionAction}>
+            Create solution
+          </GatedCreateButton>
         </div>
         <p className="text-sm text-muted-foreground">
           You don&apos;t have any solutions yet. Create your first one to get
@@ -45,9 +51,9 @@ export default async function SolutionsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Your solutions</h1>
-        <form action={createSolutionAction}>
-          <Button type="submit">Create solution</Button>
-        </form>
+        <GatedCreateButton canCreate={canCreate ?? false} entityType="solution" createAction={createSolutionAction}>
+          Create solution
+        </GatedCreateButton>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

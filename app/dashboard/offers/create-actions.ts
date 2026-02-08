@@ -16,6 +16,23 @@ export async function createOfferAction() {
     throw new Error("Not authenticated");
   }
 
+  // Check subscription tier limits
+  const { data: canCreate, error: limitError } = await supabase.rpc(
+    "can_create_offer",
+    { user_id: user.id },
+  );
+
+  if (limitError) {
+    console.error("can_create_offer RPC error", limitError);
+    throw new Error("Failed to check subscription limits");
+  }
+
+  if (!canCreate) {
+    throw new Error(
+      "You've reached the offer limit for your current plan. Upgrade to create more offers.",
+    );
+  }
+
   const { data: category, error: categoryError } = await supabase
     .from("categories")
     .select("id")

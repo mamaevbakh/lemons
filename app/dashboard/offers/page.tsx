@@ -4,17 +4,24 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createOfferAction } from "./create-actions";
+import { GatedCreateButton } from "@/components/gated-create-button";
 import { Eye, Pencil } from "lucide-react";
 
 export default async function OffersPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const { data: offers, error } = await supabase
-    .from("offers")
-    .select(
-      "id, title, description, offer_status, starting_price_cents, currency_code, created_at, slug"
-    )
-    .order("created_at", { ascending: false });
+  const [{ data: offers, error }, { data: canCreate }] = await Promise.all([
+    supabase
+      .from("offers")
+      .select(
+        "id, title, description, offer_status, starting_price_cents, currency_code, created_at, slug"
+      )
+      .order("created_at", { ascending: false }),
+    supabase.rpc("can_create_offer", { user_id: user!.id }),
+  ]);
 
   if (error) {
     return (
@@ -29,9 +36,9 @@ export default async function OffersPage() {
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Your offers</h1>
-          <form action={createOfferAction}>
-            <Button type="submit">Create offer</Button>
-          </form>
+          <GatedCreateButton canCreate={canCreate ?? false} entityType="offer" createAction={createOfferAction}>
+            Create offer
+          </GatedCreateButton>
         </div>
         <p className="text-sm text-muted-foreground">
           You don&apos;t have any offers yet. Create your first one to get started.
@@ -44,9 +51,9 @@ export default async function OffersPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Your offers</h1>
-        <form action={createOfferAction}>
-          <Button type="submit">Create offer</Button>
-        </form>
+        <GatedCreateButton canCreate={canCreate ?? false} entityType="offer" createAction={createOfferAction}>
+          Create offer
+        </GatedCreateButton>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

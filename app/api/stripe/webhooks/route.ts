@@ -3,6 +3,8 @@ import Stripe from "stripe";
 
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import { tierFromProductId } from "@/lib/subscription";
+import type { SubscriptionTier } from "@/lib/subscription";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-11-17.clover" as Stripe.LatestApiVersion,
@@ -47,16 +49,30 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   const sig = req.headers.get("stripe-signature")!;
 
-  let event: Stripe.Event;
+  let event: Stripe.Event | undefined;
 
-  try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-  } catch (err) {
-    console.error("Webhook signature verification failed", err);
+  // Two webhook destinations share this endpoint:
+  //   1. STRIPE_WEBHOOK_SECRET         — Connect events (account.updated, capability.updated)
+  //   2. STRIPE_WEBHOOK_SECRET_ACCOUNT  — Your-account events (subscriptions, checkout, invoices)
+  // Try both secrets to verify the signature.
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET_ACCOUNT,
+    process.env.STRIPE_WEBHOOK_SECRET,
+  ].filter(Boolean) as string[];
+
+  let verified = false;
+  for (const secret of secrets) {
+    try {
+      event = stripe.webhooks.constructEvent(body, sig, secret);
+      verified = true;
+      break;
+    } catch {
+      // Try next secret
+    }
+  }
+
+  if (!verified || !event) {
+    console.error("Webhook signature verification failed against all secrets");
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -76,6 +92,11 @@ export async function POST(req: NextRequest) {
   const isCheckoutCompletedEvent =
     eventType === "checkout.session.completed" ||
     eventType === "checkout.session.async_payment_succeeded";
+
+  const isSubscriptionEvent =
+    eventType === "customer.subscription.created" ||
+    eventType === "customer.subscription.updated" ||
+    eventType === "customer.subscription.deleted";
 
   if (isAccountUpdateEvent || isCapabilityUpdateEvent) {
     // account.updated carries an Account object.
@@ -210,6 +231,105 @@ export async function POST(req: NextRequest) {
 
         if (error) {
           console.error("Webhook: failed to update order", error);
+        }
+      }
+    }
+  }
+
+  // ── Subscription lifecycle events ──────────────────────────────
+  if (isSubscriptionEvent) {
+    const subscription = event.data.object as Stripe.Subscription;
+    const supabaseUserId =
+      firstString(subscription.metadata?.supabase_user_id) ?? null;
+
+    if (!supabaseUserId) {
+      console.error(
+        "Webhook: subscription event missing supabase_user_id metadata",
+        { subscriptionId: subscription.id, eventType },
+      );
+    } else {
+      // Determine the new tier from the subscription's product
+      let newTier: SubscriptionTier = "free";
+
+      if (
+        subscription.status === "active" ||
+        subscription.status === "trialing"
+      ) {
+        const item = subscription.items?.data?.[0];
+        const productId =
+          typeof item?.price?.product === "string"
+            ? item.price.product
+            : null;
+
+        if (productId) {
+          newTier = tierFromProductId(productId) ?? "free";
+        }
+      }
+      // If canceled or incomplete → tier falls back to "free"
+
+      // Map Stripe status to our enum
+      const statusMap: Record<string, Database["public"]["Enums"]["subscription_status"]> = {
+        active: "active",
+        past_due: "past_due",
+        canceled: "canceled",
+        trialing: "trialing",
+        incomplete: "incomplete",
+        incomplete_expired: "incomplete",
+        unpaid: "past_due",
+      };
+      const subscriptionStatus = statusMap[subscription.status] ?? "incomplete";
+
+      // Read current tier for the audit log
+      const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("subscription_tier")
+        .eq("id", supabaseUserId)
+        .single();
+
+      const previousTier = (currentProfile?.subscription_tier ?? "free") as SubscriptionTier;
+
+      // Update profile with new subscription state
+      const periodEnd = (subscription as any).current_period_end
+        ? new Date((subscription as any).current_period_end * 1000).toISOString()
+        : null;
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          subscription_tier: newTier,
+          subscription_id: subscription.id,
+          subscription_status: subscriptionStatus,
+          subscription_current_period_end: periodEnd,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", supabaseUserId);
+
+      if (updateError) {
+        console.error("Webhook: failed to update profile subscription", updateError);
+      }
+
+      // Insert audit event (idempotent by stripe_event_id)
+      const { error: eventError } = await supabase
+        .from("subscription_events")
+        .insert({
+          profile_id: supabaseUserId,
+          event_type: eventType,
+          stripe_event_id: event.id,
+          stripe_subscription_id: subscription.id,
+          previous_tier: previousTier,
+          new_tier: newTier,
+          metadata: {
+            stripe_status: subscription.status,
+            cancel_at_period_end: subscription.cancel_at_period_end,
+          },
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (eventError) {
+        // Unique constraint on stripe_event_id = already processed
+        if (!eventError.message?.includes("unique")) {
+          console.error("Webhook: failed to insert subscription event", eventError);
         }
       }
     }

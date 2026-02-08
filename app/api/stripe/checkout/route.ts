@@ -2,12 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/types";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-11-17.clover" as Stripe.LatestApiVersion,
 });
 
-const PLATFORM_FEE_BPS = 1000; // 10%
+const DEFAULT_PLATFORM_FEE_BPS = 1000; // 10% fallback
 
 type CheckoutBody = {
   offerSlug: string;
@@ -91,7 +93,19 @@ export async function POST(req: NextRequest) {
 
     const currency = (offer.currency_code || "EUR").toUpperCase();
     const unitAmount = pkg.price_cents;
-    const feeAmount = Math.round((unitAmount * PLATFORM_FEE_BPS) / 10000);
+
+    // Get seller's platform fee based on their subscription tier
+    const serviceSupabase = createServiceClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+
+    const { data: feeBps } = await serviceSupabase.rpc("get_platform_fee_bps", {
+      user_id: offer.creator_id,
+    });
+
+    const platformFeeBps = feeBps ?? DEFAULT_PLATFORM_FEE_BPS;
+    const feeAmount = Math.round((unitAmount * platformFeeBps) / 10000);
 
     const origin = req.nextUrl.origin;
     const successUrl =

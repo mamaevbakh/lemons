@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { CurrentYear } from "@/components/current-year";
+import { PricingSection } from "@/components/pricing-section";
 
 export default function Home() {
   return (
@@ -206,6 +207,11 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <Separator />
+
+      {/* Pricing */}
+      <PricingSection />
 
       <Separator />
 

@@ -22,8 +22,10 @@ import {
   BadgeDollarSign,
   Sparkles,
   Heart,
+  Crown,
 } from "lucide-react"
 import { NavUser } from "./nav-user"
+import { Badge } from "@/components/ui/badge"
 
 type SidebarLeftUser = {
   name: string
@@ -31,10 +33,21 @@ type SidebarLeftUser = {
   avatar?: string
 }
 
+const tierConfig = {
+  free: { label: "Free", variant: "secondary" as const },
+  pro: { label: "Pro", variant: "default" as const },
+  business: { label: "Business", variant: "default" as const },
+}
+
 export function SidebarLeft({
   user,
+  subscriptionTier = "free",
   ...props
-}: React.ComponentProps<typeof Sidebar> & { user: SidebarLeftUser }) {
+}: React.ComponentProps<typeof Sidebar> & {
+  user: SidebarLeftUser
+  subscriptionTier?: string
+}) {
+  const tier = tierConfig[subscriptionTier as keyof typeof tierConfig] ?? tierConfig.free
   return (
     <Sidebar className="border-r-0" {...props}>
       {/* Logo Placeholder */}
@@ -123,6 +136,28 @@ export function SidebarLeft({
                   <Link href="/dashboard/payouts">
                     <Wallet />
                     <span>Payouts</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Plan */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Plan</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/dashboard/billing" className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Crown />
+                      <span>{tier.label}</span>
+                    </span>
+                    <Badge variant={tier.variant} className="text-[10px] px-1.5 py-0">
+                      {subscriptionTier === "free" ? "Upgrade" : "Manage"}
+                    </Badge>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -16,6 +16,23 @@ export async function createSolutionAction() {
     throw new Error("Not authenticated");
   }
 
+  // Check subscription tier limits
+  const { data: canCreate, error: limitError } = await supabase.rpc(
+    "can_create_solution",
+    { user_id: user.id },
+  );
+
+  if (limitError) {
+    console.error("can_create_solution RPC error", limitError);
+    throw new Error("Failed to check subscription limits");
+  }
+
+  if (!canCreate) {
+    throw new Error(
+      "You've reached the solution limit for your current plan. Upgrade to create more solutions.",
+    );
+  }
+
   const solutionId = crypto.randomUUID();
   const now = new Date().toISOString();
 

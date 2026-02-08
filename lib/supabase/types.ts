@@ -501,7 +501,14 @@ export type Database = {
           headline: string | null
           id: string
           stripe_account_id: string | null
+          stripe_customer_id: string | null
           stripe_onboarding_status: string | null
+          subscription_current_period_end: string | null
+          subscription_id: string | null
+          subscription_status:
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
+          subscription_tier: Database["public"]["Enums"]["subscription_tier"]
           updated_at: string
           years_of_experience: number | null
         }
@@ -513,7 +520,14 @@ export type Database = {
           headline?: string | null
           id?: string
           stripe_account_id?: string | null
+          stripe_customer_id?: string | null
           stripe_onboarding_status?: string | null
+          subscription_current_period_end?: string | null
+          subscription_id?: string | null
+          subscription_status?:
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           updated_at?: string
           years_of_experience?: number | null
         }
@@ -525,7 +539,14 @@ export type Database = {
           headline?: string | null
           id?: string
           stripe_account_id?: string | null
+          stripe_customer_id?: string | null
           stripe_onboarding_status?: string | null
+          subscription_current_period_end?: string | null
+          subscription_id?: string | null
+          subscription_status?:
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           updated_at?: string
           years_of_experience?: number | null
         }
@@ -741,11 +762,89 @@ export type Database = {
           },
         ]
       }
+      subscription_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          new_tier: Database["public"]["Enums"]["subscription_tier"] | null
+          previous_tier: Database["public"]["Enums"]["subscription_tier"] | null
+          profile_id: string
+          stripe_event_id: string
+          stripe_subscription_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          new_tier?: Database["public"]["Enums"]["subscription_tier"] | null
+          previous_tier?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          profile_id: string
+          stripe_event_id: string
+          stripe_subscription_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          new_tier?: Database["public"]["Enums"]["subscription_tier"] | null
+          previous_tier?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          profile_id?: string
+          stripe_event_id?: string
+          stripe_subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_tier_limits: {
+        Row: {
+          created_at: string
+          max_offers: number
+          max_solutions: number
+          platform_fee_bps: number
+          tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          max_offers: number
+          max_solutions: number
+          platform_fee_bps: number
+          tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          max_offers?: number
+          max_solutions?: number
+          platform_fee_bps?: number
+          tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      can_create_offer: { Args: { user_id: string }; Returns: boolean }
+      can_create_solution: { Args: { user_id: string }; Returns: boolean }
+      get_platform_fee_bps: { Args: { user_id: string }; Returns: number }
       recompute_offer_aggregates: {
         Args: { p_offer_id: string }
         Returns: undefined
@@ -754,6 +853,13 @@ export type Database = {
     Enums: {
       offer_status: "draft" | "active"
       solution_status: "draft" | "published" | "archived"
+      subscription_status:
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "trialing"
+        | "incomplete"
+      subscription_tier: "free" | "pro" | "business"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -886,6 +992,14 @@ export const Constants = {
     Enums: {
       offer_status: ["draft", "active"],
       solution_status: ["draft", "published", "archived"],
+      subscription_status: [
+        "active",
+        "past_due",
+        "canceled",
+        "trialing",
+        "incomplete",
+      ],
+      subscription_tier: ["free", "pro", "business"],
     },
   },
 } as const
