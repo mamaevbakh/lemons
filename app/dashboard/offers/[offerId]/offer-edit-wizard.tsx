@@ -277,7 +277,7 @@ export function OfferEditWizard({
   }
 
   return (
-    <div className="flex w-full gap-2 min-h-full max-h-full">
+    <div className="flex w-full gap-2 h-full overflow-hidden">
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="space-y-8 flex-auto overflow-y-auto p-6"
@@ -1004,7 +1004,7 @@ export function OfferEditWizard({
       )}
     </form>
 
-      <div className="hidden lg:block lg:sticky min-w-[480px] w-80 border-l pl-2 pb-2 pr-2">
+      <div className="hidden lg:flex lg:flex-col min-w-[480px] w-80 h-full overflow-hidden border-l pl-2 pb-2 pr-2">
         <OfferAssistantPanel
           form={form}
           availableCases={availableCasesState.map((c) => ({

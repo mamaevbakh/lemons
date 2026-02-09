@@ -19,6 +19,7 @@ export default async function OffersPage() {
       .select(
         "id, title, description, offer_status, starting_price_cents, currency_code, created_at, slug"
       )
+      .eq("creator_id", user!.id)
       .order("created_at", { ascending: false }),
     supabase.rpc("can_create_offer", { user_id: user!.id }),
   ]);

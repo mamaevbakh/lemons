@@ -18,6 +18,7 @@ export default async function SolutionsPage() {
       .select(
         "id, title, headline, description, status, slug, website_url, created_at, updated_at, published_at",
       )
+      .eq("owner_id", user!.id)
       .order("created_at", { ascending: false }),
     supabase.rpc("can_create_solution", { user_id: user!.id }),
   ]);

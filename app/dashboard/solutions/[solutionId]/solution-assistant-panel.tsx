@@ -348,7 +348,7 @@ export function SolutionAssistantPanel({
   const isLoading = status === "streaming" || status === "submitted";
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <Conversation>
         {messages.length === 0 ? (
           <ConversationEmptyState

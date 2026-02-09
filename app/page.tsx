@@ -8,15 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { CurrentYear } from "@/components/current-year";
 import { PricingSection } from "@/components/pricing-section";
+import { LemonsLogo } from "@/components/lemons-logo";
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-background dark:bg-black">
       {/* Navigation */}
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link href="/" className="font-semibold text-xl">
-            Lemons
+          <Link href="/" className="inline-flex items-center">
+            <LemonsLogo className="h-15 w-auto md:h-16" priority />
           </Link>
           <nav className="flex items-center gap-4">
             <Button variant="ghost" asChild>

@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { NavUser } from "./nav-user"
 import { Badge } from "@/components/ui/badge"
+import { LemonsLogo } from "@/components/lemons-logo"
 
 type SidebarLeftUser = {
   name: string
@@ -50,13 +51,9 @@ export function SidebarLeft({
   const tier = tierConfig[subscriptionTier as keyof typeof tierConfig] ?? tierConfig.free
   return (
     <Sidebar className="border-r-0" {...props}>
-      {/* Logo Placeholder */}
       <SidebarHeader className="p-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30">
-            <span className="text-xs text-muted-foreground">L</span>
-          </div>
-          <span className="font-semibold text-lg">Lemons</span>
+        <Link href="/dashboard" className="inline-flex items-center">
+          <LemonsLogo className="h-7 w-auto" />
         </Link>
       </SidebarHeader>
 

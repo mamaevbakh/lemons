@@ -66,6 +66,7 @@ async function SolutionPageContent({
     .from("solutions")
     .select("*")
     .eq("id", solutionId)
+    .eq("owner_id", user.id)
     .single<Solution>();
 
   if (solutionError || !solution) {
@@ -105,10 +106,11 @@ async function SolutionPageContent({
   const { data: offers } = await supabase
     .from("offers")
     .select("id, title, offer_status, slug")
+    .eq("creator_id", user.id)
     .order("created_at", { ascending: false });
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)]">
+    <div className="h-[calc(100vh-3.5rem)] overflow-hidden">
       <SolutionEditWizard
         solution={solution}
         solutionMedia={(mediaLinks ?? []) as SolutionMediaJoin[]}

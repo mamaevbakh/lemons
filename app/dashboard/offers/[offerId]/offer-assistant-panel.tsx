@@ -402,7 +402,7 @@ export function OfferAssistantPanel({
   const isLoading = status === "streaming" || status === "submitted";
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Messages */}
       <Conversation>
         {messages.length === 0 ? (

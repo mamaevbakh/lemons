@@ -397,7 +397,7 @@ export function SolutionEditWizard({
   };
 
   return (
-    <div className="flex w-full gap-2 min-h-full max-h-full">
+    <div className="flex w-full gap-2 h-full overflow-hidden">
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="space-y-8 flex-auto overflow-y-auto p-6"
@@ -1200,7 +1200,7 @@ export function SolutionEditWizard({
         )}
       </form>
 
-      <div className="hidden w-[420px] shrink-0 border-l bg-background p-4 lg:block">
+      <div className="hidden w-[420px] shrink-0 h-full overflow-hidden border-l bg-background p-4 lg:flex lg:flex-col">
         <SolutionAssistantPanel
           form={form}
           availableCases={availableCasesState.map((c) => ({

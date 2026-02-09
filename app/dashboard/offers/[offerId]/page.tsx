@@ -43,6 +43,7 @@ async function OfferPageContent({
     .from("offers")
     .select("*")
     .eq("id", offerId)
+    .eq("creator_id", user.id)
     .single<Offer>();
 
   if (offerError || !offer) {
@@ -72,7 +73,7 @@ async function OfferPageContent({
     .order("created_at", { ascending: false });
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)]">
+    <div className="h-[calc(100vh-3.5rem)] overflow-hidden">
       <OfferEditWizard
         offer={offer}
         categories={(categories ?? []) as Category[]}
