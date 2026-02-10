@@ -53,7 +53,7 @@ export function SidebarLeft({
     <Sidebar className="border-r-0" {...props}>
       <SidebarHeader className="p-4">
         <Link href="/dashboard" className="inline-flex items-center">
-          <LemonsLogo className="h-7 w-auto" />
+          <LemonsLogo className="h-16 w-auto" />
         </Link>
       </SidebarHeader>
 

@@ -6,7 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
   title: "LemonsLemons",
-  description: "The only app you need to build Offers",
+  description: "freelancers selling productized services, companies promoting their tools, and clients getting matched to both based on their actual needs.",
 };
 
 export default function RootLayout({
