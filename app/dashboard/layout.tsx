@@ -3,6 +3,7 @@ import { SidebarLeft } from "@/components/sidebar-left"
 
 import { redirect } from "next/navigation"
 
+import { ensureProfileExists } from "@/lib/supabase/ensure-profile"
 import { createClient } from "@/lib/supabase/server"
 
 import { Suspense } from "react"
@@ -47,6 +48,8 @@ async function DashboardAuthedLayout({
     redirect(`/auth?next=${encodeURIComponent("/dashboard")}`)
   }
 
+  await ensureProfileExists(supabase, user)
+
   const name =
     (typeof user.user_metadata?.name === "string" && user.user_metadata.name) ||
     (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name) ||
@@ -62,7 +65,7 @@ async function DashboardAuthedLayout({
     .from("profiles")
     .select("subscription_tier")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
 
   const subscriptionTier = profile?.subscription_tier ?? "free"
 

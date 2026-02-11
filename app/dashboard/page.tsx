@@ -13,11 +13,28 @@ export default async function DashboardHome() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: canCreateOffer }, { data: canCreateSolution }] =
-    await Promise.all([
-      supabase.rpc("can_create_offer", { user_id: user!.id }),
-      supabase.rpc("can_create_solution", { user_id: user!.id }),
-    ]);
+  const [
+    { data: canCreateOffer },
+    { data: canCreateSolution },
+    { count: existingOffersCount },
+    { count: existingSolutionsCount },
+  ] = await Promise.all([
+    supabase.rpc("can_create_offer", { user_id: user!.id }),
+    supabase.rpc("can_create_solution", { user_id: user!.id }),
+    supabase
+      .from("offers")
+      .select("id", { count: "exact", head: true })
+      .eq("creator_id", user!.id),
+    supabase
+      .from("solutions")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", user!.id),
+  ]);
+
+  const canCreateOfferEffective =
+    (canCreateOffer ?? false) || (existingOffersCount ?? 0) === 0;
+  const canCreateSolutionEffective =
+    (canCreateSolution ?? false) || (existingSolutionsCount ?? 0) === 0;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -39,7 +56,7 @@ export default async function DashboardHome() {
       <div className="grid gap-6 md:grid-cols-2">
         {/* Freelancer / Solo Expert */}
         <GatedCreateButton
-          canCreate={canCreateOffer ?? false}
+          canCreate={canCreateOfferEffective}
           entityType="offer"
           createAction={createOfferAction}
           variant="ghost"
@@ -79,7 +96,7 @@ export default async function DashboardHome() {
 
         {/* Company / Team */}
         <GatedCreateButton
-          canCreate={canCreateSolution ?? false}
+          canCreate={canCreateSolutionEffective}
           entityType="solution"
           createAction={createSolutionAction}
           variant="ghost"

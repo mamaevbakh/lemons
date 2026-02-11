@@ -24,6 +24,8 @@ export default async function OffersPage() {
     supabase.rpc("can_create_offer", { user_id: user!.id }),
   ]);
 
+  const canCreateEffective = (canCreate ?? false) || (offers?.length ?? 0) === 0;
+
   if (error) {
     return (
       <div className="p-6 text-sm text-destructive">
@@ -37,7 +39,7 @@ export default async function OffersPage() {
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Your offers</h1>
-          <GatedCreateButton canCreate={canCreate ?? false} entityType="offer" createAction={createOfferAction}>
+          <GatedCreateButton canCreate={canCreateEffective} entityType="offer" createAction={createOfferAction}>
             Create offer
           </GatedCreateButton>
         </div>
@@ -52,7 +54,7 @@ export default async function OffersPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Your offers</h1>
-        <GatedCreateButton canCreate={canCreate ?? false} entityType="offer" createAction={createOfferAction}>
+        <GatedCreateButton canCreate={canCreateEffective} entityType="offer" createAction={createOfferAction}>
           Create offer
         </GatedCreateButton>
       </div>

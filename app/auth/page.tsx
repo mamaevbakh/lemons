@@ -2,11 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+
+const OTP_LENGTH = 6;
+type AuthStep = "email" | "otp";
 
 export default function AuthPage() {
   const supabase = createSupabaseBrowserClient();
@@ -14,12 +24,15 @@ export default function AuthPage() {
   const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
 
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [step, setStep] = useState<AuthStep>("email");
+  const [hasSentEmail, setHasSentEmail] = useState(false);
 
   const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const nextParam = searchParams.get("next");
@@ -68,11 +81,10 @@ export default function AuthPage() {
     };
   }, [router, safeNext, supabase]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSendEmail(e: React.FormEvent) {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSending(true);
     setError(null);
-    setMagicLinkSent(false);
 
     try {
       const redirectTo = `${getSiteOrigin()}/auth/callback?next=${encodeURIComponent(
@@ -83,11 +95,14 @@ export default function AuthPage() {
         email,
         options: {
           emailRedirectTo: redirectTo,
+          shouldCreateUser: true,
         },
       });
 
       if (error) throw error;
-      setMagicLinkSent(true);
+      setHasSentEmail(true);
+      setStep("otp");
+      setOtp("");
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -97,12 +112,47 @@ export default function AuthPage() {
             : "Something went wrong";
       setError(message);
     } finally {
-      setIsLoading(false);
+      setIsSending(false);
     }
   }
 
-  const title = "Sign in";
-  const buttonLabel = "Send magic link";
+  function handleResendFromStepOne() {
+    setStep("email");
+    setOtp("");
+    setError(null);
+  }
+
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setIsVerifyingOtp(true);
+    setError(null);
+
+    try {
+      const token = otp.trim();
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: "email",
+      });
+
+      if (error) throw error;
+      router.replace(safeNext ?? "/dashboard");
+      router.refresh();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : "Something went wrong";
+      setError(message);
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  }
+
+  const title = "Sign in or create account";
+  const buttonLabel = hasSentEmail ? "Resend link and code" : "Send link and code";
 
   if (isCheckingSession) {
     return (
@@ -122,47 +172,100 @@ export default function AuthPage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="text-sm text-muted-foreground">
-            We’ll email you a link to sign in.
+            We&apos;ll email a magic link and a one-time code.
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="email">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
+        {step === "email" ? (
+          <form onSubmit={handleSendEmail} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="email">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setHasSentEmail(false);
+                }}
+                required
+                disabled={isSending}
+              />
+            </div>
 
-          {magicLinkSent ? (
+            {hasSentEmail ? (
+              <p className="text-sm text-muted-foreground">
+                Didn&apos;t receive it? Send another link and code.
+              </p>
+            ) : null}
+
+            <Button type="submit" className="w-full" disabled={isSending}>
+              {isSending ? "Please wait..." : buttonLabel}
+            </Button>
+          </form>
+        ) : null}
+
+        {step === "otp" ? (
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Check your email for the magic link.
+              Enter the 6-digit code sent to {email}.
             </p>
-          ) : null}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                One-time code
+              </label>
+              <InputOTP
+                id="otp"
+                maxLength={OTP_LENGTH}
+                pattern={REGEXP_ONLY_DIGITS}
+                autoComplete="one-time-code"
+                value={otp}
+                onChange={setOtp}
+                disabled={isVerifyingOtp}
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                </InputOTPGroup>
+                <InputOTPSeparator />
+                <InputOTPGroup>
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
 
-          {error && (
-            <p className="text-sm text-red-500" role="alert">
-              {error}
-            </p>
-          )}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isVerifyingOtp || otp.trim().length !== OTP_LENGTH}
+            >
+              {isVerifyingOtp ? "Verifying..." : "Continue with code"}
+            </Button>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isLoading}
-          >
-            {isLoading ? "Please wait..." : buttonLabel}
-          </Button>
-        </form>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleResendFromStepOne}
+              disabled={isVerifyingOtp}
+            >
+              Resend email
+            </Button>
+          </form>
+        ) : null}
+
+        {error && (
+          <p className="text-sm text-red-500" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );

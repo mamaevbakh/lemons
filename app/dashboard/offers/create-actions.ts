@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { ensureProfileExists } from "@/lib/supabase/ensure-profile";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createOfferAction() {
@@ -16,15 +17,33 @@ export async function createOfferAction() {
     throw new Error("Not authenticated");
   }
 
-  // Check subscription tier limits
-  const { data: canCreate, error: limitError } = await supabase.rpc(
-    "can_create_offer",
-    { user_id: user.id },
-  );
+  await ensureProfileExists(supabase, user);
 
-  if (limitError) {
-    console.error("can_create_offer RPC error", limitError);
-    throw new Error("Failed to check subscription limits");
+  const { count: existingOffersCount, error: countError } = await supabase
+    .from("offers")
+    .select("id", { count: "exact", head: true })
+    .eq("creator_id", user.id);
+
+  if (countError) {
+    console.error("offers count query failed", countError);
+    throw new Error("Failed to validate offer limits");
+  }
+
+  const isFirstOffer = (existingOffersCount ?? 0) === 0;
+
+  // Check subscription tier limits
+  let canCreate = true;
+  if (!isFirstOffer) {
+    const { data, error: limitError } = await supabase.rpc("can_create_offer", {
+      user_id: user.id,
+    });
+
+    if (limitError) {
+      console.error("can_create_offer RPC error", limitError);
+      throw new Error("Failed to check subscription limits");
+    }
+
+    canCreate = Boolean(data);
   }
 
   if (!canCreate) {
@@ -69,7 +88,7 @@ export async function createOfferAction() {
 
   if (insertError) {
     console.error(insertError);
-    throw new Error("Failed to create offer");
+    throw new Error(`Failed to create offer: ${insertError.message}`);
   }
 
   redirect(`/dashboard/offers/${offerId}`);

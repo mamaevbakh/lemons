@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { ensureProfileExists } from "@/lib/supabase/ensure-profile";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createSolutionAction() {
@@ -16,15 +17,34 @@ export async function createSolutionAction() {
     throw new Error("Not authenticated");
   }
 
-  // Check subscription tier limits
-  const { data: canCreate, error: limitError } = await supabase.rpc(
-    "can_create_solution",
-    { user_id: user.id },
-  );
+  await ensureProfileExists(supabase, user);
 
-  if (limitError) {
-    console.error("can_create_solution RPC error", limitError);
-    throw new Error("Failed to check subscription limits");
+  const { count: existingSolutionsCount, error: countError } = await supabase
+    .from("solutions")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", user.id);
+
+  if (countError) {
+    console.error("solutions count query failed", countError);
+    throw new Error("Failed to validate solution limits");
+  }
+
+  const isFirstSolution = (existingSolutionsCount ?? 0) === 0;
+
+  // Check subscription tier limits
+  let canCreate = true;
+  if (!isFirstSolution) {
+    const { data, error: limitError } = await supabase.rpc(
+      "can_create_solution",
+      { user_id: user.id },
+    );
+
+    if (limitError) {
+      console.error("can_create_solution RPC error", limitError);
+      throw new Error("Failed to check subscription limits");
+    }
+
+    canCreate = Boolean(data);
   }
 
   if (!canCreate) {
@@ -57,7 +77,7 @@ export async function createSolutionAction() {
 
   if (insertError) {
     console.error(insertError);
-    throw new Error("Failed to create solution");
+    throw new Error(`Failed to create solution: ${insertError.message}`);
   }
 
   redirect(`/dashboard/solutions/${solutionId}`);
