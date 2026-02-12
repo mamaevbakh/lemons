@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Controller, useFieldArray, useForm, type SubmitErrorHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import type { Tables } from "@/lib/supabase/types";
@@ -81,6 +81,60 @@ type Props = {
   availableOffers: OfferRow[];
 };
 
+type ToastMessage = {
+  id: string;
+  title: string;
+  description?: string;
+};
+
+function collectErrorMessages(value: unknown, output = new Set<string>()) {
+  if (!value) return output;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectErrorMessages(item, output);
+    }
+    return output;
+  }
+
+  if (typeof value !== "object") {
+    return output;
+  }
+
+  const maybeError = value as {
+    message?: unknown;
+    types?: Record<string, unknown>;
+  };
+
+  if (typeof maybeError.message === "string" && maybeError.message.trim()) {
+    output.add(maybeError.message.trim());
+  }
+
+  if (maybeError.types && typeof maybeError.types === "object") {
+    for (const nested of Object.values(maybeError.types)) {
+      if (typeof nested === "string" && nested.trim()) {
+        output.add(nested.trim());
+      }
+    }
+  }
+
+  for (const nested of Object.values(value as Record<string, unknown>)) {
+    collectErrorMessages(nested, output);
+  }
+
+  return output;
+}
+
+function normalizeHttpsUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const withoutScheme = trimmed.replace(/^https?:\/\//i, "");
+  if (!withoutScheme) return "";
+
+  return `https://${withoutScheme}`;
+}
+
 export function SolutionEditWizard({
   solution,
   solutionMedia,
@@ -110,6 +164,8 @@ export function SolutionEditWizard({
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
   const [availableCasesState, setAvailableCasesState] = useState(availableCases);
   const [editingCase, setEditingCase] = useState<EditableCase | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const toastTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const defaultLinks = links.map((l) => ({
     id: l.id,
@@ -167,8 +223,42 @@ export function SolutionEditWizard({
     }
   }, [isPending]);
 
+  useEffect(() => {
+    const timers = toastTimers.current;
+    return () => {
+      for (const timer of timers.values()) {
+        clearTimeout(timer);
+      }
+      timers.clear();
+    };
+  }, []);
+
   function goToStep(next: 1 | 2 | 3) {
     setStep(next);
+  }
+
+  function dismissToast(id: string) {
+    const timer = toastTimers.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      toastTimers.current.delete(id);
+    }
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }
+
+  function pushErrorToast(title: string, details?: string[]) {
+    const id = crypto.randomUUID();
+    const description = details
+      ?.map((entry) => entry.trim())
+      .filter(Boolean)
+      .slice(0, 6)
+      .join("\n");
+
+    setToasts((prev) => [...prev, { id, title, description }].slice(-4));
+    const timer = setTimeout(() => {
+      dismissToast(id);
+    }, 6500);
+    toastTimers.current.set(id, timer);
   }
 
   const linksArray = useFieldArray({ control, name: "links" });
@@ -348,10 +438,43 @@ export function SolutionEditWizard({
       },
     };
 
+    const actionLabel =
+      submitIntent === "publish"
+        ? "publish"
+        : submitIntent === "archive"
+          ? "archive"
+          : "save";
+
     startTransition(() => {
-      saveSolutionAction(payload);
+      void saveSolutionAction(payload).catch((error: unknown) => {
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : "Something went wrong. Please try again.";
+        pushErrorToast(`Could not ${actionLabel} this solution`, [message]);
+      });
     });
   }
+
+  const onInvalid: SubmitErrorHandler<SolutionEditorValues> = (errors) => {
+    setSubmitIntent(null);
+    setLoadingButton(null);
+
+    const actionLabel =
+      submitIntent === "publish"
+        ? "publish"
+        : submitIntent === "archive"
+          ? "archive"
+          : "save";
+
+    const messages = Array.from(collectErrorMessages(errors));
+    pushErrorToast(
+      `Could not ${actionLabel} this solution`,
+      messages.length > 0
+        ? messages
+        : ["Please fix the highlighted fields and try again."],
+    );
+  };
 
   const featuredOfferIds = watch("solution.featuredOfferIds") ?? [];
   const visibleLinks = (watch("links") ?? []).filter((l) => !l?._deleted);
@@ -399,7 +522,7 @@ export function SolutionEditWizard({
   return (
     <div className="flex w-full gap-2 h-full overflow-hidden">
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
         className="space-y-8 flex-auto overflow-y-auto p-6"
       >
         {/* Step indicator + status pill */}
@@ -511,15 +634,26 @@ export function SolutionEditWizard({
                   render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
                       <FieldLabel htmlFor={field.name}>Website</FieldLabel>
-                      <Input
-                        {...field}
-                        id={field.name}
-                        placeholder="https://example.com"
-                        aria-invalid={fieldState.invalid}
-                        autoComplete="off"
-                      />
+                      <div className="relative">
+                        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
+                          https://
+                        </span>
+                        <Input
+                          {...field}
+                          id={field.name}
+                          value={(field.value ?? "").replace(/^https?:\/\//i, "")}
+                          onChange={(event) => {
+                            field.onChange(normalizeHttpsUrl(event.target.value));
+                          }}
+                          placeholder="example.com"
+                          aria-invalid={fieldState.invalid}
+                          autoComplete="off"
+                          inputMode="url"
+                          className="pl-[4.5rem]"
+                        />
+                      </div>
                       <FieldDescription>
-                        Optional. Shown as a prominent CTA.
+                        Optional. We automatically prefix this with https://.
                       </FieldDescription>
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
@@ -784,12 +918,24 @@ export function SolutionEditWizard({
                             render={({ field, fieldState }) => (
                               <Field data-invalid={fieldState.invalid}>
                                 <FieldLabel htmlFor={field.name}>URL</FieldLabel>
-                                <Input
-                                  {...field}
-                                  id={field.name}
-                                  placeholder="https://..."
-                                  aria-invalid={fieldState.invalid}
-                                />
+                                <div className="relative">
+                                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
+                                    https://
+                                  </span>
+                                  <Input
+                                    {...field}
+                                    id={field.name}
+                                    value={(field.value ?? "").replace(/^https?:\/\//i, "")}
+                                    onChange={(event) => {
+                                      field.onChange(normalizeHttpsUrl(event.target.value));
+                                    }}
+                                    placeholder="linkedin.com/in/username"
+                                    aria-invalid={fieldState.invalid}
+                                    autoComplete="off"
+                                    inputMode="url"
+                                    className="pl-[4.5rem]"
+                                  />
+                                </div>
                                 {fieldState.invalid && (
                                   <FieldError errors={[fieldState.error]} />
                                 )}
@@ -1211,6 +1357,40 @@ export function SolutionEditWizard({
           onCaseUpdated={onCaseUpdated}
         />
       </div>
+
+      {toasts.length > 0 ? (
+        <div
+          aria-live="assertive"
+          className="pointer-events-none fixed right-4 top-4 z-50 flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2"
+        >
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="pointer-events-auto rounded-lg border border-destructive/30 bg-background p-3 shadow-lg"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-destructive">{toast.title}</p>
+                  {toast.description ? (
+                    <p className="whitespace-pre-line text-xs text-muted-foreground">
+                      {toast.description}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => dismissToast(toast.id)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -14,7 +14,15 @@ export async function saveSolutionAction(input: unknown) {
 
   if (!parsed.success) {
     console.error(parsed.error.format());
-    throw new Error("Invalid solution payload");
+    const messages = parsed.error.issues
+      .map((issue) => issue.message)
+      .filter(Boolean);
+
+    throw new Error(
+      messages.length > 0
+        ? `Invalid solution payload: ${messages.join(", ")}`
+        : "Invalid solution payload",
+    );
   }
 
   const { solutionId, solution, links, pricingItems, caseLinks } =

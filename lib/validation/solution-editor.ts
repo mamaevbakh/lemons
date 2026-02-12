@@ -2,13 +2,46 @@ import { z } from "zod";
 
 import { SolutionFormSchema } from "@/lib/validation/solution-form";
 
-const LinkSchema = z.object({
-  id: z.string().uuid(),
-  platform: z.string().min(1).max(40),
-  url: z.string().url(),
-  position: z.number().int().nonnegative(),
-  _deleted: z.boolean().optional(),
-});
+const UrlSchema = z.string().url();
+
+const LinkSchema = z
+  .object({
+    id: z.string().uuid(),
+    platform: z.string().max(40),
+    url: z.string(),
+    position: z.number().int().nonnegative(),
+    _deleted: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value._deleted) return;
+
+    const platform = value.platform.trim();
+    if (!platform) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Platform is required",
+        path: ["platform"],
+      });
+    }
+
+    const url = value.url.trim();
+    if (!url) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "URL is required",
+        path: ["url"],
+      });
+      return;
+    }
+
+    if (!UrlSchema.safeParse(url).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid URL",
+        path: ["url"],
+      });
+    }
+  });
 
 const LinkDraftSchema = z.object({
   id: z.string().uuid().optional(),
@@ -18,16 +51,45 @@ const LinkDraftSchema = z.object({
   _deleted: z.boolean().optional(),
 });
 
-const PricingItemSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string().min(1).max(120),
-  priceText: z.string().min(1).max(60),
-  description: z.string().max(2000).optional(),
-  ctaLabel: z.string().max(40).optional(),
-  ctaUrl: z.string().url().optional(),
-  position: z.number().int().nonnegative(),
-  _deleted: z.boolean().optional(),
-});
+const PricingItemSchema = z
+  .object({
+    id: z.string().uuid(),
+    title: z.string().max(120),
+    priceText: z.string().max(60),
+    description: z.string().max(2000).optional(),
+    ctaLabel: z.string().max(40).optional(),
+    ctaUrl: z.string().optional(),
+    position: z.number().int().nonnegative(),
+    _deleted: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value._deleted) return;
+
+    if (!value.title.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Title is required",
+        path: ["title"],
+      });
+    }
+
+    if (!value.priceText.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Price is required",
+        path: ["priceText"],
+      });
+    }
+
+    const ctaUrl = value.ctaUrl?.trim();
+    if (ctaUrl && !UrlSchema.safeParse(ctaUrl).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid URL",
+        path: ["ctaUrl"],
+      });
+    }
+  });
 
 const PricingItemDraftSchema = z.object({
   id: z.string().uuid().optional(),
