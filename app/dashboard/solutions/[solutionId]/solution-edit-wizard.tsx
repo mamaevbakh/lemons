@@ -31,7 +31,7 @@ import { Empty, EmptyContent, EmptyDescription } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
 import { Plus, Trash2, Pencil } from "lucide-react";
 
-import { saveSolutionAction } from "./save-actions";
+import { saveSolutionAction, saveSolutionDraftAction } from "./save-actions";
 import { SolutionAssistantPanel } from "./solution-assistant-panel";
 
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from "@/components/dropzone";
@@ -212,7 +212,7 @@ export function SolutionEditWizard({
     },
   });
 
-  const { control, handleSubmit, watch, setValue } = form;
+  const { control, getValues, handleSubmit, watch, setValue } = form;
 
   const solutionStatus = watch("solution.status");
 
@@ -475,6 +475,31 @@ export function SolutionEditWizard({
         : ["Please fix the highlighted fields and try again."],
     );
   };
+
+  function onSaveDraft() {
+    setSubmitIntent("draft");
+    setLoadingButton("draft");
+    setValue("solution.status", "draft", { shouldDirty: true });
+
+    const values = getValues();
+    const payload = {
+      ...values,
+      solution: {
+        ...values.solution,
+        status: "draft" as const,
+      },
+    };
+
+    startTransition(() => {
+      void saveSolutionDraftAction(payload).catch((error: unknown) => {
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : "Something went wrong. Please try again.";
+        pushErrorToast("Could not save this solution", [message]);
+      });
+    });
+  }
 
   const featuredOfferIds = watch("solution.featuredOfferIds") ?? [];
   const visibleLinks = (watch("links") ?? []).filter((l) => !l?._deleted);
@@ -1295,14 +1320,10 @@ export function SolutionEditWizard({
 
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
-                  type="submit"
+                  type="button"
                   variant="outline"
                   disabled={isPending}
-                  onClick={() => {
-                    setSubmitIntent("draft");
-                    setLoadingButton("draft");
-                    setValue("solution.status", "draft", { shouldDirty: true });
-                  }}
+                  onClick={onSaveDraft}
                 >
                   {loadingButton === "draft" && isPending ? (
                     <Spinner className="mr-2" />

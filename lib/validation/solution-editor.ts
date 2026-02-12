@@ -46,7 +46,7 @@ const LinkSchema = z
 const LinkDraftSchema = z.object({
   id: z.string().uuid().optional(),
   platform: z.string().max(40).optional(),
-  url: z.string().url().optional(),
+  url: z.string().optional(),
   position: z.number().int().nonnegative().optional(),
   _deleted: z.boolean().optional(),
 });
@@ -97,7 +97,7 @@ const PricingItemDraftSchema = z.object({
   priceText: z.string().max(60).optional(),
   description: z.string().max(2000).optional(),
   ctaLabel: z.string().max(40).optional(),
-  ctaUrl: z.string().url().optional(),
+  ctaUrl: z.string().optional(),
   position: z.number().int().nonnegative().optional(),
   _deleted: z.boolean().optional(),
 });
@@ -130,13 +130,8 @@ const SolutionDraftSchema = z.object({
   title: z.string().max(120).optional(),
   headline: z.string().max(160).optional(),
   description: z.string().max(4000).optional(),
-  websiteUrl: z.string().url().or(z.literal("")).optional(),
-  slug: z
-    .string()
-    .min(3)
-    .max(80)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/i)
-    .optional(),
+  websiteUrl: z.string().optional(),
+  slug: z.string().max(80).optional(),
   status: z.enum(["draft", "published", "archived"]).optional(),
   featuredOfferIds: z.array(z.string().uuid()).optional(),
 });
